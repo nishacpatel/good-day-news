@@ -1,0 +1,119 @@
+# Source registry (PRD section 13).
+# fetcher: which fetcher agent reads it (news | science | official)
+# credibility: 1 (weak) to 5 (very strong). Initial values are a starting point; review them.
+# primary: true when the source publishes its own findings or announcements (not reporting on others).
+sources:
+  # ---- News outlets ----
+  - name: Positive News
+    domain: positive.news
+    feed_url: https://www.positive.news/feed/
+    fetcher: news
+    country: GB
+    credibility: 4
+    primary: false
+  - name: Reasons to be Cheerful
+    domain: reasonstobecheerful.world
+    feed_url: https://reasonstobecheerful.world/feed/
+    fetcher: news
+    country: US
+    credibility: 4
+    primary: false
+  - name: Good News Network
+    domain: goodnewsnetwork.org
+    feed_url: https://www.goodnewsnetwork.org/feed/
+    fetcher: news
+    country: US
+    credibility: 3
+    primary: false
+  - name: The Better India
+    domain: thebetterindia.com
+    feed_url: https://thebetterindia.com/feed/
+    fetcher: news
+    country: IN
+    credibility: 3
+    primary: false
+  - name: Mongabay
+    domain: news.mongabay.com
+    feed_url: https://news.mongabay.com/feed/
+    fetcher: news
+    country: US
+    credibility: 4
+    primary: false
+  - name: BBC Science & Environment
+    domain: bbc.co.uk
+    feed_url: https://feeds.bbci.co.uk/news/science_and_environment/rss.xml
+    fetcher: news
+    country: GB
+    credibility: 5
+    primary: false
+  - name: The Guardian Environment
+    domain: theguardian.com
+    feed_url: https://www.theguardian.com/environment/rss
+    fetcher: news
+    country: GB
+    credibility: 5
+    primary: false
+  - name: The Hindu Sci-Tech
+    domain: thehindu.com
+    feed_url: https://www.thehindu.com/sci-tech/feeder/default.rss
+    fetcher: news
+    country: IN
+    credibility: 4
+    primary: false
+
+  # ---- Science + research ----
+  - name: ScienceDaily
+    domain: sciencedaily.com
+    feed_url: https://www.sciencedaily.com/rss/top/science.xml
+    fetcher: science
+    country: US
+    credibility: 4
+    primary: false
+  - name: MIT News
+    domain: news.mit.edu
+    feed_url: https://news.mit.edu/rss/feed
+    fetcher: science
+    country: US
+    credibility: 5
+    primary: true
+  - name: NASA News
+    domain: nasa.gov
+    feed_url: https://www.nasa.gov/news-release/feed/
+    fetcher: science
+    country: US
+    credibility: 5
+    primary: true
+  - name: Phys.org
+    domain: phys.org
+    feed_url: https://phys.org/rss-feed/
+    fetcher: science
+    country: GB
+    credibility: 4
+    primary: false
+    active: false  # 8 Oct 2026: article pages return 403 Forbidden to our fetcher
+
+  # ---- Official + NGO ----
+  - name: UN News
+    domain: news.un.org
+    feed_url: https://news.un.org/feed/subscribe/en/news/all/rss.xml
+    fetcher: official
+    country: INT
+    credibility: 5
+    primary: true
+    active: false  # 8 Oct 2026: feed address returns 404; find the new UN News RSS address
+  - name: WHO News
+    domain: who.int
+    feed_url: https://www.who.int/rss-feeds/news-english.xml
+    fetcher: official
+    country: INT
+    credibility: 5
+    primary: true
+    active: false  # 8 Oct 2026: feed works but its newest item is from Feb 2026
+  - name: PIB India
+    domain: pib.gov.in
+    feed_url: https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3
+    fetcher: official
+    country: IN
+    credibility: 4
+    primary: true
+    active: false  # 8 Oct 2026: feed returns Hindi for both Lang=1 and Lang=2; find the English feed

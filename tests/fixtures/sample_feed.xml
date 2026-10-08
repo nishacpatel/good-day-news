@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample Constructive Feed</title>
+    <link>https://example.org</link>
+    <description>Fixture for tests</description>
+    <item>
+      <title>Village solar co-op powers 400 homes</title>
+      <link>https://example.org/solar-coop</link>
+      <description>&lt;p&gt;A community &lt;b&gt;solar&lt;/b&gt; co-op now powers 400 homes.&lt;/p&gt;</description>
+      <pubDate>Wed, 07 Oct 2026 09:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Old story about a reforestation drive</title>
+      <link>https://example.org/old-story</link>
+      <description>Published long ago.</description>
+      <pubDate>Mon, 01 Jun 2026 09:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Undated story about a new library</title>
+      <link>https://example.org/undated</link>
+      <description>No date in the feed.</description>
+    </item>
+    <item>
+      <title></title>
+      <link>https://example.org/no-title</link>
+    </item>
+  </channel>
+</rss>

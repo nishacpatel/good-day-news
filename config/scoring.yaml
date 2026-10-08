@@ -1,0 +1,35 @@
+# Constructive scoring model (PRD section 11).
+# Editors can change these weights without touching code. Weights must add up to 1.0.
+weights:
+  constructive_impact: 0.25
+  significance: 0.20
+  source_credibility: 0.20
+  human_impact: 0.10
+  novelty: 0.10
+  evidence_quality: 0.10
+  emotional_value: 0.05
+
+# Each dimension is scored 0-10. A story is kept when its weighted total reaches this value.
+keep_threshold: 6.0
+
+# Opinion and commentary pieces are not presented as news (PRD section 14)
+reject_opinion: true
+
+# Briefing diversity rules (PRD section 10)
+max_stories_per_pillar: 2
+max_stories_per_country: 3
+
+# ---- Processing ----
+# Two articles are treated as the same event when their embeddings are at least this similar (0-1).
+cluster_similarity: 0.86
+# New articles are also matched against stories from this many recent hours.
+cluster_lookback_hours: 72
+# Articles screened per triage call (one cheap LLM call screens the whole batch).
+triage_batch_size: 25
+# Cap on new stories scored per run, to stay inside free-tier daily limits.
+max_new_stories_per_run: 40
+# Chunk size for the chat's passage search, in approximate tokens.
+chunk_target_tokens: 400
+chunk_max_tokens: 500
+# Full article text and chunks are deleted after this many days (copyright).
+retention_days: 30

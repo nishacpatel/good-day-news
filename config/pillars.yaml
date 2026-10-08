@@ -1,0 +1,25 @@
+# News taxonomy (PRD section 9): eight pillars and their subcategories.
+humanity:
+  label: Humanity
+  subcategories: [Acts of kindness, Human courage, Volunteers, Community support, Unsung heroes, Disaster recovery, Human resilience]
+progress:
+  label: Progress
+  subcategories: [Poverty reduction, Literacy, Public health, Education, Infrastructure, Public services, Quality of life, Social development]
+science:
+  label: Science & Discovery
+  subcategories: [Medical research, Space, Physics, Biology, Climate science, Neuroscience, AI, Technology, Scientific discoveries]
+solutions:
+  label: Solutions
+  subcategories: [Climate solutions, Energy, Waste, Water, Food, Healthcare, Education, Poverty, Sustainable cities]
+environment:
+  label: Environment & Planet
+  subcategories: [Wildlife recovery, Conservation, Reforestation, Ocean health, Biodiversity, Renewable energy, Sustainable agriculture, Pollution reduction]
+innovation:
+  label: Innovation
+  subcategories: [Technology, AI, Engineering, Startups, Social innovation, Rural innovation, Frugal innovation, Product innovation]
+people:
+  label: Inspiring People
+  subcategories: [Scientists, Teachers, Entrepreneurs, Social workers, Young achievers, Athletes, Artists, Community leaders, Ordinary people doing extraordinary things]
+culture:
+  label: Joy & Culture
+  subcategories: [Arts, Music, Culture, Festivals, Cultural preservation, Animals, Interesting human traditions, Sports achievements, Remarkable achievements]

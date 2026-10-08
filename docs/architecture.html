@@ -1,0 +1,373 @@
+<title>Constructive News AI Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
+<style>
+  /* Layout: three stacked lanes (curate, brief, answer) on the left, one shared store column on the right */
+  :root {
+    --bg: #f5f7f8;
+    --fg: #18212b;
+    --muted: #5a6574;
+    --line: #c4ccd6;
+    --box: #ffffff;
+    --accent: #0a6c69;
+    --accent-soft: #dcefed;
+    --sun: #b8650a;
+    --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151b; --fg: #e3e8ee; --muted: #98a3b2; --line: #394453;
+      --box: #19212a; --accent: #4cc2b6; --accent-soft: #13332f; --sun: #f0a54a; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151b; --fg: #e3e8ee; --muted: #98a3b2; --line: #394453;
+    --box: #19212a; --accent: #4cc2b6; --accent-soft: #13332f; --sun: #f0a54a; color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--sans); }
+  .wrap { max-width: 1340px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 48px; }
+  header { display: grid; gap: 6px; margin-bottom: 20px; }
+  .eyebrow { font: 600 11px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--sun); }
+  h1 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: 700; text-wrap: balance; }
+  .lede { margin: 0; color: var(--muted); max-width: 72ch; line-height: 1.5; font-size: 15px; }
+  figure { margin: 0; }
+  .scroll { overflow-x: auto; background: var(--box); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  svg { display: block; width: 100%; min-width: 1040px; height: auto; color: var(--fg); }
+  figcaption { margin-top: 12px; color: var(--muted); font-size: 14px; line-height: 1.55; max-width: 85ch; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 28px; }
+  .notes div { min-width: 0; }
+  .notes h2 { margin: 0 0 6px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .notes p, .notes li { margin: 0; line-height: 1.5; font-size: 14px; }
+  .notes ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+
+  /* SVG marks, all from tokens */
+  .box { fill: var(--box); stroke: var(--line); stroke-width: 1.2; }
+  .kb { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+  .us { fill: var(--box); stroke: var(--accent); stroke-width: 1.6; }
+  .chip { fill: var(--box); stroke: var(--accent); stroke-width: 1; }
+  .engine { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 7 5; }
+  .sep { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+  .rule { stroke: var(--line); stroke-width: 1; }
+  .arr { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+  .arr-a { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+  .arr-s { stroke: var(--sun); stroke-width: 1.8; fill: none; }
+  .af { fill: var(--accent); }
+  .sf { fill: var(--sun); }
+  .t { fill: var(--fg); font-family: var(--sans); font-size: 13px; font-weight: 600; }
+  .s { fill: var(--muted); font-family: var(--sans); font-size: 11px; }
+  .m { fill: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+  .lab { fill: var(--fg); font-family: var(--sans); font-size: 10.5px; }
+  .row { fill: var(--fg); font-family: var(--sans); font-size: 11.5px; }
+  .lab-a { fill: var(--accent); font-family: var(--sans); font-size: 11px; font-weight: 600; }
+  .lab-s { fill: var(--sun); font-family: var(--sans); font-size: 11px; font-weight: 600; }
+  .lane { fill: var(--muted); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; }
+  .c { text-anchor: middle; }
+  .e { text-anchor: end; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Capstone · System architecture · v2</span>
+    <h1>Constructive News AI</h1>
+    <p class="lede">Agents collect credible news, keep only stories that show real progress, and file them as scored, de-duplicated stories. Each morning a briefing is built for every user. At any time, users can explore stories or ask the RAG chat, which answers only from stored stories and cites them.</p>
+  </header>
+
+  <figure>
+    <div class="scroll">
+      <svg viewBox="0 0 1320 1060" role="img" aria-label="Three lanes share a story store and a user store. Ingestion and curation, every 6 hours: scheduler, orchestrator, fetcher agents by source type, processing agent, constructive scoring agent, then writes stories. Daily briefing, each morning: briefing builder reads recent stories and user preferences, caches each briefing and sends a push notification. On demand: the app offers explore and search over the story store, and a RAG chat engine that interprets, retrieves, reranks, generates and cites or refuses. User feedback is written to the user store.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <marker id="aha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" class="af"/>
+          </marker>
+          <marker id="ahs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" class="sf"/>
+          </marker>
+        </defs>
+
+        <!-- ================= Lane A: ingestion + curation ================= -->
+        <text class="lane e" x="1030" y="30">A · INGESTION + CURATION · EVERY 6 HOURS · WRITES STORIES</text>
+
+        <rect class="box" x="20" y="150" width="110" height="60" rx="6"/>
+        <text class="t c" x="75" y="177">Scheduler</text>
+        <text class="m c" x="75" y="196">APScheduler</text>
+        <line class="arr" x1="130" y1="180" x2="168" y2="180" marker-end="url(#ah)"/>
+        <text class="lab c" x="149" y="172">runs</text>
+
+        <rect class="box" x="170" y="150" width="140" height="60" rx="6"/>
+        <text class="t c" x="240" y="170">Orchestrator</text>
+        <text class="s c" x="240" y="186">retries, fallbacks</text>
+        <text class="m c" x="240" y="201">LangGraph</text>
+
+        <line class="arr" x1="240" y1="210" x2="240" y2="253" marker-end="url(#ah)"/>
+        <text class="lab" x="248" y="236">logs</text>
+        <rect class="box" x="170" y="255" width="140" height="44" rx="6"/>
+        <text class="t c" x="240" y="274">Run log</text>
+        <text class="m c" x="240" y="290">counts · errors</text>
+
+        <!-- bus to fetchers -->
+        <line class="arr" x1="310" y1="180" x2="330" y2="180"/>
+        <line class="arr" x1="330" y1="80" x2="330" y2="200"/>
+        <line class="arr" x1="330" y1="80" x2="348" y2="80" marker-end="url(#ah)"/>
+        <line class="arr" x1="330" y1="140" x2="348" y2="140" marker-end="url(#ah)"/>
+        <line class="arr" x1="330" y1="200" x2="348" y2="200" marker-end="url(#ah)"/>
+
+        <text class="s c" x="435" y="47">fetchers by source type</text>
+        <rect class="box" x="350" y="55" width="170" height="50" rx="6"/>
+        <text class="t c" x="435" y="76">News outlets</text>
+        <text class="m c" x="435" y="94">RSS · GNews · NewsData</text>
+        <rect class="box" x="350" y="115" width="170" height="50" rx="6"/>
+        <text class="t c" x="435" y="136">Science + research</text>
+        <text class="m c" x="435" y="154">universities · journals</text>
+        <rect class="box" x="350" y="175" width="170" height="50" rx="6"/>
+        <text class="t c" x="435" y="196">Official + NGO</text>
+        <text class="m c" x="435" y="214">govt · UN · WHO · NGOs</text>
+
+        <rect class="box" x="350" y="255" width="170" height="44" rx="6"/>
+        <text class="t c" x="435" y="274">Source registry</text>
+        <text class="m c" x="435" y="290">credibility · country</text>
+        <line class="arr" x1="435" y1="255" x2="435" y2="227" marker-end="url(#ah)"/>
+        <text class="lab" x="443" y="245">which sources</text>
+
+        <!-- fetchers -> processing -->
+        <line class="arr" x1="520" y1="80" x2="568" y2="80" marker-end="url(#ah)"/>
+        <line class="arr" x1="520" y1="140" x2="568" y2="140" marker-end="url(#ah)"/>
+        <line class="arr" x1="520" y1="200" x2="568" y2="200" marker-end="url(#ah)"/>
+        <text class="lab c" x="545" y="72">articles</text>
+
+        <!-- Processing agent -->
+        <rect class="box" x="570" y="55" width="210" height="244" rx="6"/>
+        <text class="t c" x="675" y="80">Processing agent</text>
+        <line class="rule" x1="584" y1="92" x2="766" y2="92"/>
+        <text class="row" x="586" y="112">1  Clean + extract</text><text class="m e" x="766" y="112">trafilatura</text>
+        <text class="row" x="586" y="134">2  Cluster same event</text><text class="m e" x="766" y="134">vectors</text>
+        <text class="row" x="586" y="156">3  Place + entities</text><text class="m e" x="766" y="156">spaCy</text>
+        <text class="row" x="586" y="178">4  Summary + why it matters</text><text class="m e" x="766" y="178">LLM</text>
+        <text class="row" x="586" y="200">5  Key facts</text><text class="m e" x="766" y="200">LLM</text>
+        <text class="row" x="586" y="222">6  Chunk full text</text><text class="m e" x="766" y="222">300–500 tok</text>
+        <text class="row" x="586" y="244">7  Embed both</text><text class="m e" x="766" y="244">bge-small</text>
+        <line class="rule" x1="584" y1="258" x2="766" y2="258"/>
+        <text class="s c" x="675" y="281">3 outlets, 1 event → “reported by 3”</text>
+
+        <line class="arr" x1="780" y1="180" x2="818" y2="180" marker-end="url(#ah)"/>
+        <text class="lab c" x="799" y="172">stories</text>
+
+        <!-- Scoring agent -->
+        <rect class="box" x="820" y="55" width="210" height="244" rx="6"/>
+        <text class="t c" x="925" y="80">Constructive scoring agent</text>
+        <line class="rule" x1="834" y1="92" x2="1016" y2="92"/>
+        <text class="row" x="836" y="114">1  Pick pillar (of 8)</text><text class="m e" x="1016" y="114">LLM</text>
+        <text class="row" x="836" y="140">2  Score 7 dimensions</text><text class="m e" x="1016" y="140">LLM</text>
+        <text class="row" x="836" y="166">3  Weighted total</text><text class="m e" x="1016" y="166">weights.yaml</text>
+        <text class="row" x="836" y="192">4  Verification level</text><text class="m e" x="1016" y="192">sources</text>
+        <text class="row" x="836" y="218">5  Keep if ≥ threshold</text>
+        <text class="row" x="836" y="244">6  Record why included</text>
+        <line class="rule" x1="834" y1="258" x2="1016" y2="258"/>
+        <text class="s c" x="925" y="281">positive wording alone does not qualify</text>
+
+        <!-- registry credibility -> scoring -->
+        <polyline class="arr" points="520,290 545,290 545,316 925,316 925,301" marker-end="url(#ah)"/>
+        <text class="lab c" x="735" y="330">credibility ratings</text>
+
+        <!-- scoring -> story store -->
+        <line class="arr-a" x1="1030" y1="180" x2="1078" y2="180" marker-end="url(#aha)"/>
+        <text class="lab-a c" x="1054" y="172">writes</text>
+        <text class="lab-a c" x="1054" y="198">+ chunks</text>
+
+        <line class="sep" x1="20" y1="340" x2="1030" y2="340"/>
+
+        <!-- ================= Lane B: daily briefing ================= -->
+        <text class="lane e" x="1030" y="358">B · DAILY BRIEFING · 6AM IN EACH USER'S TIMEZONE</text>
+
+        <rect class="box" x="600" y="368" width="430" height="140" rx="6"/>
+        <text class="t" x="618" y="392">Briefing builder agent</text>
+        <text class="m e" x="1014" y="392">one per user</text>
+        <line class="rule" x1="616" y1="402" x2="1014" y2="402"/>
+        <text class="row" x="618" y="422">1  Filter by the user's topics + geography</text>
+        <text class="row" x="618" y="440">2  Rank: constructive score × user preference</text>
+        <text class="row" x="618" y="458">3  Diversify: mix pillars and countries</text>
+        <text class="row" x="618" y="476">4  Trim: Quick 2–3 · Standard 5–7 · Deep 8–12</text>
+        <text class="row" x="618" y="494">5  Write intro + “Something to think about today”</text>
+
+        <!-- story store -> builder -->
+        <line class="arr-a" x1="1090" y1="410" x2="1032" y2="410" marker-end="url(#aha)"/>
+        <text class="lab-a c" x="1054" y="402">24h</text>
+        <!-- user store -> builder (bus) -->
+        <polyline class="arr-a" points="1080,940 1055,940 1055,480 1032,480" marker-end="url(#aha)"/>
+        <text class="lab-a c" x="1056" y="472">prefs</text>
+
+        <rect class="box" x="330" y="404" width="220" height="64" rx="6"/>
+        <text class="t c" x="440" y="428">Today's briefings</text>
+        <text class="s c" x="440" y="447">cached; falls back to yesterday's</text>
+        <line class="arr" x1="600" y1="436" x2="552" y2="436" marker-end="url(#ah)"/>
+        <text class="lab c" x="576" y="428">saves</text>
+
+        <rect class="box" x="20" y="400" width="260" height="72" rx="6"/>
+        <text class="t c" x="150" y="422">Push notification</text>
+        <text class="m c" x="150" y="440">Firebase Cloud Messaging</text>
+        <text class="s c" x="150" y="458">“☀️ 7 things went right yesterday”</text>
+        <line class="arr" x1="330" y1="436" x2="282" y2="436" marker-end="url(#ah)"/>
+        <text class="lab c" x="306" y="428">ready</text>
+
+        <line class="sep" x1="20" y1="525" x2="1030" y2="525"/>
+
+        <!-- ================= Lane C: on demand ================= -->
+        <text class="lane e" x="1030" y="545">C · ON DEMAND · WHEN A USER OPENS THE APP</text>
+
+        <!-- push -> app, cache -> app -->
+        <line class="arr-s" x1="80" y1="472" x2="80" y2="573" marker-end="url(#ahs)"/>
+        <text class="lab-s" x="88" y="545">tap</text>
+        <polyline class="arr" points="440,468 440,553 160,553 160,573" marker-end="url(#ah)"/>
+        <text class="lab c" x="300" y="547">loads briefing</text>
+
+        <!-- App -->
+        <rect class="box" x="20" y="575" width="160" height="325" rx="6"/>
+        <text class="t c" x="100" y="600">Web / mobile app</text>
+        <text class="m c" x="100" y="618">responsive PWA</text>
+        <line class="rule" x1="34" y1="632" x2="166" y2="632"/>
+        <text class="s c" x="100" y="656">Morning briefing</text>
+        <text class="s c" x="100" y="678">Explore + search</text>
+        <text class="s c" x="100" y="700">Story detail</text>
+        <text class="s c" x="100" y="722">Chat · Ask AI</text>
+        <text class="s c" x="100" y="744">Like · save · share</text>
+        <text class="s c" x="100" y="766">Follow / hide topic</text>
+        <line class="rule" x1="34" y1="784" x2="166" y2="784"/>
+        <text class="s c" x="100" y="806">login + onboarding</text>
+        <text class="m c" x="100" y="824">Supabase Auth</text>
+
+        <!-- Explore / search (no LLM) -->
+        <line class="arr" x1="180" y1="597" x2="228" y2="597" marker-end="url(#ah)"/>
+        <text class="lab c" x="204" y="589">browse</text>
+        <rect class="box" x="230" y="572" width="180" height="50" rx="6"/>
+        <text class="t c" x="320" y="593">Explore + search</text>
+        <text class="m c" x="320" y="610">SQL filters + BM25</text>
+        <line class="arr" x1="410" y1="597" x2="1090" y2="597" marker-start="url(#ah)" marker-end="url(#ah)"/>
+        <text class="lab c" x="740" y="589">filter by pillar, place, date, topic · no LLM needed</text>
+
+        <!-- RAG engine -->
+        <rect class="engine" x="230" y="690" width="800" height="170" rx="10"/>
+        <text class="t" x="246" y="712">RAG chat engine</text>
+        <text class="s e" x="1014" y="712">keeps context within a session</text>
+
+        <line class="arr" x1="180" y1="765" x2="244" y2="765" marker-end="url(#ah)"/>
+        <text class="lab" x="186" y="757">asks</text>
+
+        <rect class="box" x="246" y="725" width="116" height="80" rx="6"/>
+        <text class="t c" x="304" y="750">1 · Interpret</text>
+        <text class="s c" x="304" y="769">date, topic, place</text>
+        <text class="m c" x="304" y="786">+ story in view</text>
+
+        <rect class="box" x="376" y="725" width="116" height="80" rx="6"/>
+        <text class="t c" x="434" y="750">2 · Stories</text>
+        <text class="s c" x="434" y="769">which stories?</text>
+        <text class="m c" x="434" y="786">BM25 + vectors</text>
+
+        <rect class="box" x="506" y="725" width="116" height="80" rx="6"/>
+        <text class="t c" x="564" y="750">3 · Passages</text>
+        <text class="s c" x="564" y="769">best paragraphs</text>
+        <text class="s c" x="564" y="786">within those only</text>
+
+        <rect class="box" x="636" y="725" width="116" height="80" rx="6"/>
+        <text class="t c" x="694" y="750">4 · Rerank</text>
+        <text class="s c" x="694" y="769">recency, score,</text>
+        <text class="s c" x="694" y="786">your prefs</text>
+
+        <rect class="box" x="766" y="725" width="116" height="80" rx="6"/>
+        <text class="t c" x="824" y="750">5 · Generate</text>
+        <text class="s c" x="824" y="769">only from sources</text>
+        <text class="m c" x="824" y="786">LLM + fallback</text>
+
+        <rect class="box" x="896" y="725" width="116" height="80" rx="6"/>
+        <text class="t c" x="954" y="750">6 · Cite</text>
+        <text class="s c" x="954" y="769">sources + link</text>
+        <text class="s c" x="954" y="786">or refuse</text>
+
+        <line class="arr" x1="362" y1="765" x2="374" y2="765" marker-end="url(#ah)"/>
+        <line class="arr" x1="492" y1="765" x2="504" y2="765" marker-end="url(#ah)"/>
+        <line class="arr" x1="622" y1="765" x2="634" y2="765" marker-end="url(#ah)"/>
+        <line class="arr" x1="752" y1="765" x2="764" y2="765" marker-end="url(#ah)"/>
+        <line class="arr" x1="882" y1="765" x2="894" y2="765" marker-end="url(#ah)"/>
+
+        <!-- Step 2 <-> story store, step 3 <-> chunk index -->
+        <polyline class="arr-a" points="434,725 434,650 1090,650" marker-start="url(#aha)" marker-end="url(#aha)"/>
+        <text class="lab-a c" x="760" y="644">step 2 · find matching stories (kept stories only)</text>
+        <polyline class="arr-a" points="564,805 564,836 1090,836" marker-start="url(#aha)" marker-end="url(#aha)"/>
+        <text class="lab-a c" x="760" y="830">step 3 · passages from those stories</text>
+
+        <!-- Answer back -->
+        <polyline class="arr" points="954,805 954,880 182,880" marker-end="url(#ah)"/>
+        <text class="lab c" x="560" y="874">answer with citations, or “I couldn't find enough reliable reporting to answer that confidently.”</text>
+
+        <!-- Feedback -> user store -->
+        <polyline class="arr-a" points="100,900 100,1040 1190,1040 1190,1017" marker-end="url(#aha)"/>
+        <text class="lab-a c" x="600" y="1034">feedback: likes, dislikes, saves, hides, follows, reads → better personalisation</text>
+
+        <!-- ================= Shared stores ================= -->
+        <text class="lane c" x="1190" y="30">SHARED STORES</text>
+
+        <rect class="kb" x="1080" y="55" width="220" height="808" rx="8"/>
+        <text class="t" x="1094" y="78">Knowledge base</text>
+        <text class="m e" x="1288" y="78">Supabase</text>
+
+        <rect class="us" x="1092" y="92" width="196" height="578" rx="6"/>
+        <text class="t" x="1104" y="116">Story store</text>
+        <text class="s" x="1104" y="133">one row per story</text>
+        <text class="m" x="1104" y="149">Postgres · pgvector</text>
+        <rect class="chip" x="1104" y="165" width="172" height="22" rx="11"/><text class="m c" x="1190" y="180">headline · summary</text>
+        <rect class="chip" x="1104" y="195" width="172" height="22" rx="11"/><text class="m c" x="1190" y="210">why it matters · facts</text>
+        <rect class="chip" x="1104" y="225" width="172" height="22" rx="11"/><text class="m c" x="1190" y="240">pillar · subcategory</text>
+        <rect class="chip" x="1104" y="255" width="172" height="22" rx="11"/><text class="m c" x="1190" y="270">location · date</text>
+        <rect class="chip" x="1104" y="285" width="172" height="22" rx="11"/><text class="m c" x="1190" y="300">score + breakdown</text>
+        <rect class="chip" x="1104" y="315" width="172" height="22" rx="11"/><text class="m c" x="1190" y="330">why included</text>
+        <rect class="chip" x="1104" y="345" width="172" height="22" rx="11"/><text class="m c" x="1190" y="360">verification level</text>
+        <rect class="chip" x="1104" y="375" width="172" height="22" rx="11"/><text class="m c" x="1190" y="390">sources (reported by N)</text>
+        <rect class="chip" x="1104" y="405" width="172" height="22" rx="11"/><text class="m c" x="1190" y="420">story embedding</text>
+        <text class="s" x="1104" y="460">kept long term</text>
+
+        <rect class="us" x="1092" y="690" width="196" height="160" rx="6"/>
+        <text class="t" x="1104" y="714">Chunk index</text>
+        <text class="s" x="1104" y="731">300–500 token passages</text>
+        <text class="m" x="1104" y="747">pgvector + BM25</text>
+        <text class="s" x="1104" y="773">kept stories only</text>
+        <text class="s" x="1104" y="791">deleted after 30 days</text>
+        <text class="s" x="1104" y="809">never shown to users</text>
+        <text class="s" x="1104" y="827">linked by story id</text>
+
+        <rect class="us" x="1080" y="885" width="220" height="130" rx="8"/>
+        <text class="t" x="1098" y="910">User store</text>
+        <text class="m" x="1098" y="927">Supabase Postgres</text>
+        <text class="s" x="1098" y="954">topics · geography</text>
+        <text class="s" x="1098" y="972">length · notification time</text>
+        <text class="s" x="1098" y="990">saved stories · feedback</text>
+        <text class="s" x="1098" y="1008">engagement events</text>
+      </svg>
+    </div>
+    <figcaption>Three lanes share one knowledge base and a user store. Lane A runs every few hours and is the only lane that writes stories and their full-text chunks. Lane B builds one briefing per user each morning from the story store. Lane C serves the app: browsing and search read the story store directly. The chat searches in two steps: first it finds matching stories, then the best passages within only those stories. Teal arrows are reads and writes on the stores. The amber arrow is the push notification that starts the daily habit.</figcaption>
+  </figure>
+
+  <section class="notes">
+    <div>
+      <h2>What changed from v1</h2>
+      <ul>
+        <li>Tech, Finance and Politics agents are replaced by fetchers split by <strong>source type</strong>. The 8 pillars are assigned later, by classification.</li>
+        <li>A new <strong>constructive scoring agent</strong> applies the 7 weighted dimensions. The weights live in a config file, so editors can change them without code changes.</li>
+        <li>Duplicates are <strong>clustered into one story</strong> marked “reported by N sources”. Before, extra copies were deleted.</li>
+        <li>A new <strong>briefing lane</strong> with per-user personalisation, diversity rules, briefing length, caching and push notifications.</li>
+        <li>A <strong>user store</strong> for logins, preferences and feedback, which personalisation needs.</li>
+        <li>A <strong>chunk index</strong> of full article text (300–500 tokens per passage), kept for 30 days for detailed questions in the chat.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Where RAG fits now</h2>
+      <p>The chat searches in two steps. Step 2 finds the right <strong>stories</strong> using scores, pillars and verification level, so rejected articles never come up. Step 3 then finds the best <strong>passages</strong> from the full text of only those stories, which answers detail questions like “how does it work?” or “who funded it?”. Full-text chunks are never shown to users, answers paraphrase with at most one short quote, and chunks are deleted after 30 days. Older stories fall back to their summary and key facts.</p>
+    </div>
+    <div>
+      <h2>Free stack in this diagram</h2>
+      <p>RSS, GNews and NewsData free tiers · trafilatura · spaCy · bge-small embeddings · Supabase (Postgres, pgvector, Auth) · Groq or Gemini free tier, with Claude as an option · Firebase Cloud Messaging · APScheduler or GitHub Actions · Next.js PWA on Vercel, or Streamlit for a quicker demo.</p>
+    </div>
+  </section>
+</div>
