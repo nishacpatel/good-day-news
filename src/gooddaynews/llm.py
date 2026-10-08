@@ -6,6 +6,7 @@ pass a fake instead of calling the API.
 
 import threading
 import time
+from collections.abc import Iterator
 from typing import Protocol, TypeVar
 
 import numpy as np
@@ -22,6 +23,8 @@ EMBED_BATCH = 100
 
 class LLM(Protocol):
     def generate_json(self, prompt: str, schema: type[T], *, system: str, fast: bool = False) -> T: ...
+
+    def stream_text(self, prompt: str, *, system: str) -> Iterator[str]: ...
 
     def embed(self, texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[np.ndarray]: ...
 
@@ -66,6 +69,7 @@ class GeminiLLM:
         self.calls = 0
         self.exhausted: set[str] = set()  # models that hit their daily cap during this run
         self.used: dict[str, int] = {}
+        self.empty_responses = 0
 
     def _throttle(self) -> None:
         with self._lock:
@@ -109,6 +113,50 @@ class GeminiLLM:
         if isinstance(resp.parsed, schema):
             return resp.parsed
         return schema.model_validate_json(resp.text or "")
+
+    def stream_text(self, prompt: str, *, system: str) -> Iterator[str]:
+        """Stream a plain-text answer from the answer models, falling back when one hits its daily cap.
+        Fallback only happens before the first chunk, so the user never sees two answers mixed."""
+        models = [m for m in model_list(self.s.answer_model) if m not in self.exhausted]
+        if not models:
+            raise RuntimeError("every configured Gemini model has hit its daily free-tier limit")
+        for model in models:
+            try:
+                first, rest = self._open_stream(model, prompt, system)
+            except errors.ClientError as exc:
+                if not is_daily_quota(exc):
+                    raise
+                self.exhausted.add(model)
+                if model == models[-1]:
+                    raise
+                continue
+            self.used[model] = self.used.get(model, 0) + 1
+            if not first:
+                # The model finished without any visible text (it can happen after long "thinking").
+                self.empty_responses += 1
+                continue
+            yield first
+            for chunk in rest:
+                if chunk.text:
+                    yield chunk.text
+            return
+        raise RuntimeError("no model returned an answer")
+
+    @_retry
+    def _open_stream(self, model: str, prompt: str, system: str):
+        self._throttle()
+        thinking = (
+            types.ThinkingConfig(thinking_level=self.s.answer_thinking.upper()) if self.s.answer_thinking else None
+        )
+        stream = iter(self.client.models.generate_content_stream(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(system_instruction=system, temperature=0.2, thinking_config=thinking),
+        ))
+        for chunk in stream:  # errors such as quota limits surface on the first chunk
+            if chunk.text:
+                return chunk.text, stream
+        return "", stream
 
     @_retry
     def _embed_batch(self, texts: list[str], task: str) -> list[np.ndarray]:

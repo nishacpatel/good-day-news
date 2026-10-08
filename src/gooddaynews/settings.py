@@ -24,6 +24,11 @@ class Settings:
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
     gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
     chat_model: str = field(default_factory=lambda: os.getenv("GEMINI_CHAT_MODEL", "gemini-3.5-flash-lite,gemini-3-flash-preview,gemini-3.1-flash-lite"))
+    answer_model: str = field(
+        default_factory=lambda: os.getenv("GEMINI_ANSWER_MODEL", "gemini-3.5-flash,gemini-3-flash-preview,gemini-3.5-flash-lite")
+    )
+    # minimal | low | medium | high, or "" for the model's default. Low cut worst-case answer time from 191s to 13s.
+    answer_thinking: str = field(default_factory=lambda: os.getenv("GEMINI_ANSWER_THINKING", "low"))
     embed_model: str = field(default_factory=lambda: os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001"))
     triage_model: str = field(default_factory=lambda: os.getenv("GEMINI_TRIAGE_MODEL", "gemini-3.1-flash-lite,gemini-3.5-flash-lite"))
     embed_dim: int = field(default_factory=lambda: int(os.getenv("EMBED_DIM", "768")))

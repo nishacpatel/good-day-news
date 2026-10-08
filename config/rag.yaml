@@ -1,0 +1,30 @@
+# RAG chat settings.
+
+# A story counts as relevant when its embedding similarity to the question reaches this value.
+# Measured on real data (8 Oct 2026): answerable questions 0.72-0.77, unanswerable 0.52-0.58.
+min_story_similarity: 0.62
+
+# Step 2 (stories): candidates from each search, and how many reach the answer.
+story_candidates: 20
+max_stories: 5
+
+# Step 3 (passages): passages from the chosen stories only.
+max_passages: 8
+max_passages_per_story: 3
+
+# Step 4 (rerank): final score = weights below applied to 0-1 signals.
+rerank_weights:
+  relevance: 0.60      # fused semantic + keyword rank
+  recency: 0.25        # halves every `recency_half_life_days`
+  constructive: 0.15   # the story's constructive score
+preference_boost: 0.10 # added when the story's pillar is one of the user's topics
+recency_half_life_days: 7
+
+# Broad questions ("what good happened this week?") with no date range look back this far.
+default_days_back: 7
+
+# Conversation turns remembered within a session.
+history_turns: 6
+
+# Exact wording when the answer is not supported by stored stories (PRD section 20).
+refusal_message: "I couldn't find enough reliable reporting to answer that confidently."

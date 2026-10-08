@@ -54,6 +54,32 @@ def test_other_errors_are_not_masked_by_fallback(monkeypatch):
     assert calls == ["model-a"]
 
 
+class _Chunk:
+    def __init__(self, text):
+        self.text = text
+
+
+def test_stream_moves_to_next_model_when_one_returns_nothing(monkeypatch):
+    llm = GeminiLLM(Settings(gemini_api_key="test", answer_model="empty-model, good-model"))
+    replies = {"empty-model": ("", iter([])), "good-model": ("Hello", iter([_Chunk(" world")]))}
+    monkeypatch.setattr(llm, "_open_stream", lambda model, prompt, system: replies[model])
+    assert "".join(llm.stream_text("p", system="s")) == "Hello world"
+    assert llm.empty_responses == 1
+
+
+def test_stream_falls_back_on_daily_cap(monkeypatch):
+    llm = GeminiLLM(Settings(gemini_api_key="test", answer_model="capped, good"))
+
+    def open_stream(model, prompt, system):
+        if model == "capped":
+            raise errors.ClientError(429, DAILY)
+        return "ok", iter([])
+
+    monkeypatch.setattr(llm, "_open_stream", open_stream)
+    assert "".join(llm.stream_text("p", system="s")) == "ok"
+    assert "capped" in llm.exhausted
+
+
 def test_all_models_capped_raises(monkeypatch):
     llm, _ = make_llm(monkeypatch, lambda m: (_ for _ in ()).throw(errors.ClientError(429, DAILY)))
     with pytest.raises(errors.ClientError):

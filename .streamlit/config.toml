@@ -1,0 +1,10 @@
+[browser]
+gatherUsageStats = false
+
+[server]
+# Only reachable from this computer during development.
+address = "localhost"
+
+[theme]
+base = "light"
+primaryColor = "#0a6c69"

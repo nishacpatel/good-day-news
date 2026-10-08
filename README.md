@@ -17,7 +17,7 @@ Capstone project: multi-agent news pipeline + RAG. Architecture: [docs/architect
 - [x] Project setup, database schema, source registry
 - [x] Fetcher agents (RSS + full-text extraction, robots.txt respected)
 - [x] Processing + constructive scoring agent (needs a live check with a Gemini key)
-- [ ] RAG chat
+- [x] RAG chat (command line and Streamlit)
 - [ ] Morning briefing + personalisation
 - [ ] Explore, feedback, notifications
 - [ ] Evaluation report
@@ -65,6 +65,12 @@ Create a free API key at aistudio.google.com and put it in `GEMINI_API_KEY` in `
 # Process new articles from the database into stories
 .\.venv\Scripts\python -m gooddaynews.process.run
 
+# Chat in the terminal (one question, or interactive with no question)
+.\.venv\Scripts\python -m gooddaynews.rag.cli "What conservation news is there from India?"
+
+# Chat in the browser at http://localhost:8501
+.\.venv\Scripts\python -m streamlit run streamlit_app.py
+
 # Tests (offline; a fake LLM stands in for Gemini)
 .\.venv\Scripts\python -m pytest
 ```
@@ -80,6 +86,19 @@ Create a free API key at aistudio.google.com and put it in `GEMINI_API_KEY` in `
 7. **Retention**: chunks and full text older than 30 days are deleted.
 
 Rejected stories are stored with `status = 'rejected'` and the reason, for review and evaluation.
+
+### How the chat works
+
+1. **Interpret**: a cheap LLM call rewrites follow-ups into standalone questions and pulls out the intent, keywords, dates ("this week") and any category or country.
+2. **Stories**: semantic search plus keyword search over stories, within the filters. A story counts as relevant from similarity 0.62. On real data, answerable questions scored 0.72–0.77 and unanswerable ones 0.52–0.58. If nothing is relevant, the chat refuses without calling the answer model.
+3. **Passages**: semantic search over the full-text chunks of the chosen stories only, at most 3 per story.
+4. **Rerank**: relevance (fused ranks) 60%, recency 25% (halves every 7 days), constructive score 15%, plus a boost for the user's topics.
+5. **Generate**: the answer model sees only numbered sources and must cite every claim, give dates, quote at most once, and use the exact refusal sentence when the sources don't answer.
+6. **Cite**: citations that don't match a provided source are removed. The rest link to the stories and their original articles.
+
+Off-topic requests (recipes, poems, homework) get a short scope message. Follow-ups keep context within a session, and the story open on screen always stays in the answer. Settings are in `config/rag.yaml`.
+
+Free-tier notes: `gemini-3.5-flash` allows 20 requests a day, so each task lists several models in `.env` and moves to the next when one is used up. Answers take about 10–40 seconds on the free tier, mostly while the model "thinks"; `GEMINI_ANSWER_THINKING=low` limits that.
 
 ## Configuration
 
