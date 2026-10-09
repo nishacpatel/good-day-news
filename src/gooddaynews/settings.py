@@ -36,6 +36,7 @@ class Settings:
     embed_batch_tokens: int = field(default_factory=lambda: int(os.getenv("EMBED_BATCH_TOKENS", "12000")))
     embed_dim: int = field(default_factory=lambda: int(os.getenv("EMBED_DIM", "768")))
     llm_min_interval: float = field(default_factory=lambda: float(os.getenv("LLM_MIN_INTERVAL_SECONDS", "4")))
+    app_url: str = field(default_factory=lambda: os.getenv("APP_URL", "http://localhost:8501"))
     lookback_hours: int = field(default_factory=lambda: int(os.getenv("LOOKBACK_HOURS", "48")))
     fetch_timeout: int = field(default_factory=lambda: int(os.getenv("FETCH_TIMEOUT_SECONDS", "20")))
     user_agent: str = field(

@@ -3,8 +3,8 @@ from datetime import UTC, date, datetime
 import pytest
 
 from gooddaynews.briefing import service
-from gooddaynews.briefing.builder import (briefing_title, diversify, rank_stories, select_stories, user_countries,
-                                          user_pillars)
+from gooddaynews.briefing.builder import (Signals, briefing_title, diversify, rank_stories, select_stories,
+                                          user_countries, user_pillars)
 from gooddaynews.briefing.models import Briefing, BriefingStory, Profile, load_briefing_config
 from gooddaynews.briefing.prompts import Thought
 
@@ -48,8 +48,23 @@ def test_without_preferences_constructive_score_decides(bcfg):
 
 def test_feedback_moves_pillars_up_and_down(bcfg):
     liked, disliked = bstory(1, pillar="culture"), bstory(2, pillar="science")
-    ranked = rank_stories([disliked, liked], profile(), bcfg, {"culture": 3, "science": -3})
+    ranked = rank_stories([disliked, liked], profile(), bcfg, Signals(pillar_reactions={"culture": 3, "science": -3}))
     assert ranked[0].id == 1
+
+
+def test_hidden_topics_are_left_out(bcfg):
+    ranked = rank_stories([bstory(1, pillar="culture"), bstory(2)], profile(), bcfg,
+                          Signals(hidden_pillars={"culture"}))
+    assert [s.id for s in ranked] == [2]
+
+
+def test_followed_topics_and_sources_are_boosted(bcfg):
+    plain, followed = bstory(1, pillar="culture", score=7.5), bstory(2, pillar="people", score=7.0)
+    assert rank_stories([plain, followed], profile(), bcfg, Signals(followed_pillars={"people"}))[0].id == 2
+
+    a, b = bstory(3, score=7.5), bstory(4, score=7.0)
+    a.sources, b.sources = [("A", "https://a.org/x", "a.org")], [("B", "https://b.org/y", "b.org")]
+    assert rank_stories([a, b], profile(), bcfg, Signals(followed_sources={"b.org"}))[0].id == 4
 
 
 def test_diversify_limits_one_pillar_but_fills_if_short():
@@ -83,8 +98,8 @@ class FakeStore:
     def recent_stories(self, conn, hours):
         return [bstory(i, pillar=p) for i, p in enumerate(self.by_window.get(hours, []), 1)]
 
-    def pillar_feedback(self, conn, uid):
-        return {}
+    def load_signals(self, conn, uid):
+        return Signals()
 
     def save_briefing(self, conn, b):
         self.saved.append(b)
@@ -110,7 +125,7 @@ def scoring():
 
 
 def use_store(monkeypatch, fake):
-    for name in ("recent_stories", "pillar_feedback", "save_briefing", "load_briefing"):
+    for name in ("recent_stories", "load_signals", "save_briefing", "load_briefing"):
         monkeypatch.setattr(service.store, name, getattr(fake, name))
 
 

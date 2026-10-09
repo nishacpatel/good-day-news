@@ -2,16 +2,18 @@
 
 from datetime import date, time
 
+from gooddaynews import feedback
+from gooddaynews.briefing.builder import Signals
 from gooddaynews.briefing.models import Briefing, BriefingStory, Profile
 
 _PROFILE_COLUMNS = ("id::text, email, display_name, topics, geography, briefing_length, notify_time, timezone, "
-                    "notify_enabled")
+                    "notify_enabled, frequency")
 
 
 def _profile(row) -> Profile:
     return Profile(id=row[0], email=row[1], display_name=row[2], topics=list(row[3] or []),
                    geography=list(row[4] or []), briefing_length=row[5], notify_time=row[6],
-                   timezone=row[7], notify_enabled=row[8])
+                   timezone=row[7], notify_enabled=row[8], frequency=row[9])
 
 
 def get_profile(conn, email: str) -> Profile | None:
@@ -20,18 +22,20 @@ def get_profile(conn, email: str) -> Profile | None:
 
 
 def save_profile(conn, email: str, display_name: str | None, topics: list[str], geography: list[str],
-                 briefing_length: str, notify_time: time, timezone: str, notify_enabled: bool) -> Profile:
+                 briefing_length: str, notify_time: time, timezone: str, notify_enabled: bool,
+                 frequency: str = "daily") -> Profile:
     rows = conn.run(
         f"""insert into user_profiles (email, display_name, topics, geography, briefing_length, notify_time, timezone,
-                                       notify_enabled)
-            values (:email, :name, cast(:topics as text[]), cast(:geo as text[]), :length, :notify_time, :tz, :notify)
+                                       notify_enabled, frequency)
+            values (:email, :name, cast(:topics as text[]), cast(:geo as text[]), :length, :notify_time, :tz, :notify,
+                    :frequency)
             on conflict (email) do update set
                 display_name = excluded.display_name, topics = excluded.topics, geography = excluded.geography,
                 briefing_length = excluded.briefing_length, notify_time = excluded.notify_time,
-                timezone = excluded.timezone, notify_enabled = excluded.notify_enabled
+                timezone = excluded.timezone, notify_enabled = excluded.notify_enabled, frequency = excluded.frequency
             returning {_PROFILE_COLUMNS}""",
         email=email.strip().lower(), name=display_name or None, topics=topics, geo=geography,
-        length=briefing_length, notify_time=notify_time, tz=timezone, notify=notify_enabled,
+        length=briefing_length, notify_time=notify_time, tz=timezone, notify=notify_enabled, frequency=frequency,
     )
     return _profile(rows[0])
 
@@ -40,12 +44,12 @@ def all_profiles(conn) -> list[Profile]:
     return [_profile(r) for r in conn.run(f"select {_PROFILE_COLUMNS} from user_profiles")]
 
 
-_STORY_COLUMNS = """id, headline, coalesce(summary, ''), coalesce(why_it_matters, ''), coalesce(pillar, ''), subcategory,
+STORY_COLUMNS = """id, headline, coalesce(summary, ''), coalesce(why_it_matters, ''), coalesce(pillar, ''), subcategory,
                     country, place, coalesce(published_at, created_at), coalesce(score, 0),
                     coalesce(verification_level, ''), source_count"""
 
 
-def _stories_with_sources(conn, rows) -> list[BriefingStory]:
+def stories_with_sources(conn, rows) -> list[BriefingStory]:
     stories = {
         r[0]: BriefingStory(id=r[0], headline=r[1], summary=r[2], why_it_matters=r[3], pillar=r[4], subcategory=r[5],
                             country=r[6], place=r[7], published_at=r[8], score=float(r[9]),
@@ -53,45 +57,39 @@ def _stories_with_sources(conn, rows) -> list[BriefingStory]:
         for r in rows
     }
     if stories:
-        for story_id, name, url in conn.run(
-            """select a.story_id, s.name, a.url from articles a join sources s on s.id = a.source_id
+        for story_id, name, url, domain in conn.run(
+            """select a.story_id, s.name, a.url, s.domain from articles a join sources s on s.id = a.source_id
                where a.story_id = any(cast(:ids as bigint[])) order by s.credibility desc, a.published_at""",
             ids=list(stories),
         ):
-            stories[story_id].sources.append((name, url))
+            stories[story_id].sources.append((name, url, domain))
     return list(stories.values())
 
 
 def recent_stories(conn, hours: int) -> list[BriefingStory]:
     rows = conn.run(
-        f"""select {_STORY_COLUMNS} from stories
+        f"""select {STORY_COLUMNS} from stories
             where status = 'published' and coalesce(published_at, created_at) > now() - make_interval(hours => :hours)""",
         hours=hours,
     )
-    return _stories_with_sources(conn, rows)
+    return stories_with_sources(conn, rows)
 
 
 def stories_by_id(conn, ids: list[int]) -> list[BriefingStory]:
     if not ids:
         return []
     rows = conn.run(
-        f"select {_STORY_COLUMNS} from stories where id = any(cast(:ids as bigint[])) and status = 'published'",
+        f"select {STORY_COLUMNS} from stories where id = any(cast(:ids as bigint[])) and status = 'published'",
         ids=ids,
     )
-    found = {s.id: s for s in _stories_with_sources(conn, rows)}
+    found = {s.id: s for s in stories_with_sources(conn, rows)}
     return [found[i] for i in ids if i in found]  # keep the briefing's order
 
 
-def pillar_feedback(conn, user_id: str) -> dict[str, int]:
-    """Net likes minus dislikes per pillar for this user."""
-    rows = conn.run(
-        """select s.pillar, sum(case f.action when 'like' then 1 when 'dislike' then -1 else 0 end)
-           from feedback f join stories s on s.id = f.story_id
-           where f.user_id = cast(:uid as uuid) and f.action in ('like', 'dislike')
-           group by s.pillar""",
-        uid=user_id,
-    )
-    return {r[0]: int(r[1]) for r in rows if r[0]}
+def load_signals(conn, user_id: str) -> Signals:
+    state = feedback.load_state(conn, user_id)
+    return Signals(pillar_reactions=feedback.pillar_reactions(conn, user_id), hidden_pillars=state.hidden_pillars,
+                   followed_pillars=state.followed_pillars, followed_sources=state.followed_sources)
 
 
 def save_briefing(conn, b: Briefing) -> None:

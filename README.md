@@ -19,7 +19,7 @@ Capstone project: multi-agent news pipeline + RAG. Architecture: [docs/architect
 - [x] Processing + constructive scoring agent (needs a live check with a Gemini key)
 - [x] RAG chat (command line and Streamlit)
 - [x] Morning briefing + personalisation (demo email sign-in; password sign-in still to do)
-- [ ] Explore, feedback, notifications
+- [x] Explore, search, story pages, feedback, notifications (email via SMTP, or a local outbox)
 - [ ] Evaluation report
 
 ## Setup
@@ -117,6 +117,15 @@ Off-topic requests (recipes, poems, homework) get a short scope message. Follow-
 Topics from onboarding map to pillars in `config/briefing.yaml`; for example, "AI" maps to Innovation and Science.
 
 The web app has three pages: Today's Briefing (the landing page), Ask AI, and My preferences. "Ask AI" on a story opens the chat about that story. Sign-in is a demo by email only (`demo@example.com` is the test profile); real password sign-in comes before launch.
+
+### Feedback, Explore and notifications
+
+- **Story actions** (every card): 👍 / 👎, Save, Share (headline, one-line summary, source and a link back to the app, never the article), and More: hide or follow the topic, follow the source. Each action is stored as a row in `feedback`; the latest row per item is its current state. Hidden topics are left out of briefings and Explore; followed topics and sources are boosted.
+- **Explore**: browse by category, geography and date, sorted by newest, most constructive, most liked or "For you". Search mixes keywords (all words must match) with meaning, ignoring words like "good" and "news" that describe every story here, and understands "today", "this week" and "this month". It makes no AI calls apart from one embedding, and falls back to keywords if that fails. The **Saved** tab lists saved stories.
+- **Story page** at `/story?id=…`: key facts, all sources, why the story was included, related stories and Ask AI. Viewing it records a `read` event.
+- **Notifications**: the hourly `gooddaynews.briefing.run` sends one email per user per day, once their briefing time has passed, on the days they chose (daily, weekdays or weekends). Each send is logged in `notifications`, so it's never sent twice, and failures are retried up to 3 times. Without `SMTP_*` settings in `.env`, emails are written to `data/outbox/` instead, so nothing is sent during development. Streamlit can't do phone push notifications, so email stands in for them.
+
+Not yet tracked: clicks on "Read the original", because Streamlit opens external links directly without telling the app.
 
 Free-tier notes: `gemini-3.5-flash` allows 20 requests a day, so each task lists several models in `.env` and moves to the next when one is used up. Answers take about 10–40 seconds on the free tier, mostly while the model "thinks"; `GEMINI_ANSWER_THINKING=low` limits that. Embeddings have a per-minute token limit, so requests are split to about 12,000 tokens and paced to stay under 25,000 a minute (`EMBED_BATCH_TOKENS`, `EMBED_TOKENS_PER_MINUTE`).
 

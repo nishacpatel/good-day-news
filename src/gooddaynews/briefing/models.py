@@ -16,6 +16,7 @@ class BriefingConfig:
     topic_boost: float
     geography_boost: float
     feedback_weight: float
+    source_boost: float
     topics: dict[str, list[str]]
     geography: dict[str, list[str]]
 
@@ -35,6 +36,7 @@ class Profile:
     notify_time: time = time(6, 0)
     timezone: str = "Asia/Kolkata"
     notify_enabled: bool = True
+    frequency: str = "daily"  # daily | weekdays | weekends
 
     def local_now(self) -> datetime:
         return datetime.now(ZoneInfo(self.timezone))
@@ -57,7 +59,7 @@ class BriefingStory:
     score: float
     verification_level: str
     source_count: int
-    sources: list[tuple[str, str]] = field(default_factory=list)  # (name, url)
+    sources: list[tuple[str, str, str]] = field(default_factory=list)  # (name, url, domain)
     rank: float = 0.0
 
 

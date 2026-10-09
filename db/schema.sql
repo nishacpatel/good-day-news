@@ -106,6 +106,30 @@ create table if not exists feedback (
     created_at  timestamptz not null default now()
 );
 create index if not exists feedback_user_idx on feedback (user_id, created_at desc);
+-- Toggle actions (unlike, unhide_topic, ...) so the latest row per item is the current state.
+alter table feedback drop constraint if exists feedback_action_check;
+alter table feedback add constraint feedback_action_check check (action in (
+    'like', 'unlike', 'dislike', 'undislike', 'save', 'unsave', 'share',
+    'hide_topic', 'unhide_topic', 'follow_topic', 'unfollow_topic', 'follow_source', 'unfollow_source',
+    'open_source', 'read'));
+
+alter table user_profiles add column if not exists frequency text not null default 'daily';
+alter table user_profiles drop constraint if exists user_profiles_frequency_check;
+alter table user_profiles add constraint user_profiles_frequency_check check (frequency in ('daily', 'weekdays', 'weekends'));
+
+-- ---------- Notifications sent (PRD 21): at most one per user, day and channel ----------
+create table if not exists notifications (
+    id         bigserial primary key,
+    user_id    uuid not null references user_profiles(id) on delete cascade,
+    for_date   date not null,
+    channel    text not null,
+    status     text not null check (status in ('sent', 'failed')),
+    subject    text,
+    error      text,
+    attempts   int not null default 1,
+    sent_at    timestamptz not null default now(),
+    unique (user_id, for_date, channel)
+);
 
 create table if not exists briefings (
     id          bigserial primary key,

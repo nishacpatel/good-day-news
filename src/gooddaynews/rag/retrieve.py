@@ -26,14 +26,14 @@ def _filter_sql(f: Filters) -> tuple[str, dict]:
     return " and ".join(clauses), params
 
 
-def keyword_query(keywords: list[str]) -> str:
-    """websearch_to_tsquery text matching ANY keyword; phrases stay together."""
+def keyword_query(keywords: list[str], match_all: bool = False) -> str:
+    """websearch_to_tsquery text matching ANY keyword (or ALL of them); phrases stay together."""
     terms = []
     for k in keywords:
         k = re.sub(r"[\"'()|&!:<>-]", " ", k).strip()
         if k:
             terms.append(f'"{k}"' if " " in k else k)
-    return " OR ".join(terms)
+    return (" " if match_all else " OR ").join(terms)
 
 
 def story_vector_search(conn, qvec, f: Filters, limit: int) -> list[tuple[int, float]]:
@@ -47,8 +47,9 @@ def story_vector_search(conn, qvec, f: Filters, limit: int) -> list[tuple[int, f
     return [(r[0], float(r[1])) for r in rows]
 
 
-def story_keyword_search(conn, keywords: list[str], f: Filters, limit: int) -> list[tuple[int, float]]:
-    query = keyword_query(keywords)
+def story_keyword_search(conn, keywords: list[str], f: Filters, limit: int,
+                         match_all: bool = False) -> list[tuple[int, float]]:
+    query = keyword_query(keywords, match_all)
     if not query:
         return []
     where, params = _filter_sql(f)

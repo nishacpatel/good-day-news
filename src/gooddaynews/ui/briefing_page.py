@@ -2,30 +2,11 @@
 
 import streamlit as st
 
-from gooddaynews.briefing.models import Briefing, BriefingStory
+from gooddaynews.briefing.models import Briefing
 from gooddaynews.briefing.service import get_briefing
 from gooddaynews.ui import nav
-from gooddaynews.ui.common import (configs, current_profile, db, llm, pillar_label, place_text,
-                                   verification_short)
-
-
-def story_card(i: int, s: BriefingStory) -> None:
-    with st.container(border=True):
-        st.caption(f"{pillar_label(s.pillar).upper()}" + (f" · {s.subcategory}" if s.subcategory else ""))
-        st.markdown(f"#### {s.headline}")
-        st.write(s.summary)
-        if s.why_it_matters:
-            st.markdown(f"**Why it matters:** {s.why_it_matters}")
-        when = s.published_at.strftime("%d %b %Y") if s.published_at else "Date unknown"
-        source = s.sources[0][0] if s.sources else "Unknown source"
-        st.caption(f"{place_text(s.place, s.country)} · {when} · {source} · "
-                   f"{verification_short(s.verification_level, s.source_count)}")
-        cols = st.columns([1, 1, 2])
-        if s.sources:
-            cols[0].link_button("Read more", s.sources[0][1], use_container_width=True)
-        if cols[1].button("Ask AI", key=f"ask-{s.id}", use_container_width=True):
-            st.session_state.story_in_view = {"id": s.id, "headline": s.headline}
-            nav.go("chat")
+from gooddaynews.ui.common import configs, current_profile, db, llm
+from gooddaynews.ui.components import story_card
 
 
 def show(b: Briefing, name: str | None) -> None:
@@ -37,8 +18,8 @@ def show(b: Briefing, name: str | None) -> None:
     elif b.window_hours > 24:
         st.caption(f"There wasn't much new in the last day, so this includes stories from the last "
                    f"{b.window_hours // 24} days.")
-    for i, s in enumerate(b.stories, 1):
-        story_card(i, s)
+    for s in b.stories:
+        story_card(s, key=f"b{s.id}")
     if b.thought:
         st.markdown("#### Something to think about today")
         st.markdown(f"> {b.thought}")

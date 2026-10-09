@@ -13,14 +13,14 @@ def build_briefing(conn, llm, profile: Profile, cfg: BriefingConfig, scoring: Sc
                    today: date | None = None) -> Briefing | None:
     """Pick today's stories for this user and save the briefing. None when there are no stories at all."""
     today = today or profile.local_date()
-    feedback = store.pillar_feedback(conn, profile.id)
+    signals = store.load_signals(conn, profile.id)
     wanted = cfg.lengths.get(profile.briefing_length, cfg.lengths["standard"])
 
     chosen, window = [], cfg.window_hours[0]
     for hours in cfg.window_hours:  # widen the window until there are enough stories
         window = hours
         chosen = select_stories(store.recent_stories(conn, hours), profile, cfg,
-                                scoring.max_stories_per_pillar, scoring.max_stories_per_country, feedback)
+                                scoring.max_stories_per_pillar, scoring.max_stories_per_country, signals)
         if len(chosen) >= wanted:
             break
     if not chosen:

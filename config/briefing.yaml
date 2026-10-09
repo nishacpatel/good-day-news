@@ -13,6 +13,8 @@ window_hours: [24, 48, 72]
 topic_boost: 0.35       # story's pillar matches one of the user's topics
 geography_boost: 0.25   # story's country matches the user's geography
 feedback_weight: 0.10   # per net like (+) or dislike (-) on the pillar, capped at +-3
+source_boost: 0.15      # the story comes from a source the user follows
+# Topics the user hides are left out entirely; topics they follow get topic_boost.
 
 # Onboarding topics (PRD 18) and the pillars they map to (config/pillars.yaml).
 topics:

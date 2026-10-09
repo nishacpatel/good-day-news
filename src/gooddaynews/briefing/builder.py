@@ -1,6 +1,18 @@
 """Choose and order a user's briefing stories (PRD sections 10, 16-18). No database or LLM calls here."""
 
+from dataclasses import dataclass, field
+
 from gooddaynews.briefing.models import BriefingConfig, BriefingStory, Profile
+
+
+@dataclass
+class Signals:
+    """What the user has told us through their actions (PRD section 24)."""
+
+    pillar_reactions: dict[str, int] = field(default_factory=dict)  # net likes per pillar
+    hidden_pillars: set[str] = field(default_factory=set)
+    followed_pillars: set[str] = field(default_factory=set)
+    followed_sources: set[str] = field(default_factory=set)  # source domains
 
 
 def user_pillars(profile: Profile, cfg: BriefingConfig) -> set[str]:
@@ -15,20 +27,28 @@ def user_countries(profile: Profile, cfg: BriefingConfig) -> set[str] | None:
 
 
 def rank_stories(stories: list[BriefingStory], profile: Profile, cfg: BriefingConfig,
-                 pillar_feedback: dict[str, int] | None = None) -> list[BriefingStory]:
-    """Constructive score, boosted for the user's topics, geography and past likes."""
-    pillars, countries = user_pillars(profile, cfg), user_countries(profile, cfg)
-    pillar_feedback = pillar_feedback or {}
+                 signals: Signals | None = None) -> list[BriefingStory]:
+    """Constructive score, boosted for the user's topics, geography, follows and likes.
+    Stories in topics the user has hidden are left out."""
+    signals = signals or Signals()
+    pillars = user_pillars(profile, cfg) | signals.followed_pillars
+    countries = user_countries(profile, cfg)
+    kept = []
     for s in stories:
+        if s.pillar in signals.hidden_pillars:
+            continue
         boost = 1.0
         if s.pillar in pillars:
             boost += cfg.topic_boost
         if countries is not None and (s.country or "") in countries:
             boost += cfg.geography_boost
-        net = max(-3, min(3, pillar_feedback.get(s.pillar, 0)))
+        if signals.followed_sources & {src[2] for src in s.sources}:
+            boost += cfg.source_boost
+        net = max(-3, min(3, signals.pillar_reactions.get(s.pillar, 0)))
         boost += cfg.feedback_weight * net
         s.rank = round(s.score / 10 * max(boost, 0.1), 4)
-    return sorted(stories, key=lambda s: (s.rank, s.score), reverse=True)
+        kept.append(s)
+    return sorted(kept, key=lambda s: (s.rank, s.score), reverse=True)
 
 
 def diversify(ranked: list[BriefingStory], count: int, max_per_pillar: int, max_per_country: int) -> list[BriefingStory]:
@@ -54,9 +74,9 @@ def diversify(ranked: list[BriefingStory], count: int, max_per_pillar: int, max_
 
 def select_stories(candidates: list[BriefingStory], profile: Profile, cfg: BriefingConfig,
                    max_per_pillar: int, max_per_country: int,
-                   pillar_feedback: dict[str, int] | None = None) -> list[BriefingStory]:
+                   signals: Signals | None = None) -> list[BriefingStory]:
     count = cfg.lengths.get(profile.briefing_length, cfg.lengths["standard"])
-    ranked = rank_stories(candidates, profile, cfg, pillar_feedback)
+    ranked = rank_stories(candidates, profile, cfg, signals)
     return diversify(ranked, count, max_per_pillar, max_per_country)
 
 
