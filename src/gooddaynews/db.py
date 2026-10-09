@@ -1,9 +1,11 @@
 """Postgres connection (Supabase) using the pure-Python pg8000 driver."""
 
 import os
+import re
 import ssl
 from contextlib import contextmanager
-from urllib.parse import unquote, urlparse
+from dataclasses import dataclass
+from urllib.parse import unquote
 
 import pg8000.native
 from pgvector.pg8000 import register_vector
@@ -23,17 +25,40 @@ def ssl_context() -> ssl.SSLContext:
     return ctx
 
 
+_URL_RE = re.compile(r"^postgres(?:ql)?://(?P<user>[^:@/]+):(?P<password>.*)@(?P<host>[^@:/]+)(?::(?P<port>\d+))?"
+                     r"(?:/(?P<database>[^?]*))?(?:\?.*)?$")
+
+
+@dataclass(frozen=True)
+class DatabaseUrl:
+    user: str
+    password: str
+    host: str
+    port: int
+    database: str
+
+
+def parse_database_url(url: str) -> DatabaseUrl:
+    """Split a postgresql:// URL. The password may contain @ [ ] # / and similar characters, which break the
+    standard URL parser, so the host is taken after the LAST @. Percent-encoded values are decoded."""
+    m = _URL_RE.match(url.strip())
+    if not m:
+        raise ValueError("DATABASE_URL should look like postgresql://user:password@host:5432/postgres")
+    return DatabaseUrl(user=unquote(m["user"]), password=unquote(m["password"]), host=m["host"],
+                       port=int(m["port"] or 5432), database=m["database"] or "postgres")
+
+
 def connect() -> pg8000.native.Connection:
     url = get_settings().database_url
     if not url:
         raise RuntimeError("DATABASE_URL is not set. Copy .env.example to .env and fill it in.")
-    parts = urlparse(url)
+    parts = parse_database_url(url)
     conn = pg8000.native.Connection(
-        user=unquote(parts.username or ""),
-        password=unquote(parts.password or ""),
-        host=parts.hostname,
-        port=parts.port or 5432,
-        database=(parts.path or "/postgres").lstrip("/"),
+        user=parts.user,
+        password=parts.password,
+        host=parts.host,
+        port=parts.port,
+        database=parts.database,
         ssl_context=ssl_context(),
         timeout=30,
     )
