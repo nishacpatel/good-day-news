@@ -18,7 +18,7 @@ Capstone project: multi-agent news pipeline + RAG. Architecture: [docs/architect
 - [x] Fetcher agents (RSS + full-text extraction, robots.txt respected)
 - [x] Processing + constructive scoring agent (needs a live check with a Gemini key)
 - [x] RAG chat (command line and Streamlit)
-- [ ] Morning briefing + personalisation
+- [x] Morning briefing + personalisation (demo email sign-in; password sign-in still to do)
 - [ ] Explore, feedback, notifications
 - [ ] Evaluation report
 
@@ -65,6 +65,13 @@ Create a free API key at aistudio.google.com and put it in `GEMINI_API_KEY` in `
 # Process new articles from the database into stories
 .\.venv\Scripts\python -m gooddaynews.process.run
 
+# Build briefings for users whose briefing time has passed (or one user now)
+.\.venv\Scripts\python -m gooddaynews.briefing.run
+.\.venv\Scripts\python -m gooddaynews.briefing.run --user demo@example.com
+
+# The whole pipeline in one go: fetch -> process -> briefings (schedule this every few hours)
+.\.venv\Scripts\python scripts\daily.py
+
 # Chat in the terminal (one question, or interactive with no question)
 .\.venv\Scripts\python -m gooddaynews.rag.cli "What conservation news is there from India?"
 
@@ -98,7 +105,20 @@ Rejected stories are stored with `status = 'rejected'` and the reason, for revie
 
 Off-topic requests (recipes, poems, homework) get a short scope message. Follow-ups keep context within a session, and the story open on screen always stays in the answer. Settings are in `config/rag.yaml`.
 
-Free-tier notes: `gemini-3.5-flash` allows 20 requests a day, so each task lists several models in `.env` and moves to the next when one is used up. Answers take about 10–40 seconds on the free tier, mostly while the model "thinks"; `GEMINI_ANSWER_THINKING=low` limits that.
+### How the morning briefing works
+
+1. **Candidates**: published stories from the last 24 hours. If there are too few for the chosen length, the window widens to 48 and then 72 hours, and the briefing says so.
+2. **Rank**: constructive score, boosted when the story's pillar matches the user's topics (+35%), its country matches their geography (+25%), and by their likes and dislikes on that pillar.
+3. **Diversify**: at most 2 stories per pillar and 3 per country (`config/scoring.yaml`). If that leaves the briefing short, the best skipped stories fill it.
+4. **Trim**: Quick 3, Standard 7, Deep 12 stories (`config/briefing.yaml`).
+5. **Close**: one cheap LLM call writes "Something to think about today" using only the stories' own content. If it fails, the briefing still appears without it.
+6. **Cache**: saved per user per day. If today's briefing can't be built, the most recent earlier one is shown with a note.
+
+Topics from onboarding map to pillars in `config/briefing.yaml`; for example, "AI" maps to Innovation and Science.
+
+The web app has three pages: Today's Briefing (the landing page), Ask AI, and My preferences. "Ask AI" on a story opens the chat about that story. Sign-in is a demo by email only (`demo@example.com` is the test profile); real password sign-in comes before launch.
+
+Free-tier notes: `gemini-3.5-flash` allows 20 requests a day, so each task lists several models in `.env` and moves to the next when one is used up. Answers take about 10–40 seconds on the free tier, mostly while the model "thinks"; `GEMINI_ANSWER_THINKING=low` limits that. Embeddings have a per-minute token limit, so requests are split to about 12,000 tokens and paced to stay under 25,000 a minute (`EMBED_BATCH_TOKENS`, `EMBED_TOKENS_PER_MINUTE`).
 
 ## Configuration
 

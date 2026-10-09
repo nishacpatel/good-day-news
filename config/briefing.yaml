@@ -1,0 +1,37 @@
+# Morning briefing settings (PRD sections 16-18).
+
+# Stories per briefing length (PRD 17: quick 2-3, standard 5-7, deep 8-12).
+lengths:
+  quick: 3
+  standard: 7
+  deep: 12
+
+# Look back this many hours first; widen step by step until there are enough stories.
+window_hours: [24, 48, 72]
+
+# Ranking: constructive score (0-10) scaled to 0-1, multiplied by these boosts when they apply.
+topic_boost: 0.35       # story's pillar matches one of the user's topics
+geography_boost: 0.25   # story's country matches the user's geography
+feedback_weight: 0.10   # per net like (+) or dislike (-) on the pillar, capped at +-3
+
+# Onboarding topics (PRD 18) and the pillars they map to (config/pillars.yaml).
+topics:
+  Science: [science]
+  Technology: [innovation, science]
+  AI: [innovation, science]
+  Business: [innovation, progress]
+  Environment: [environment, solutions]
+  Health: [progress, solutions, science]
+  Education: [progress, solutions]
+  Humanity: [humanity]
+  Innovation: [innovation]
+  Culture: [culture]
+  Sports: [culture, people]
+  Animals: [environment, culture]
+  Inspirational people: [people]
+
+# Geography choices and the story country codes they match. "Global" matches everything.
+geography:
+  India: [IN]
+  Asia: [IN, CN, JP, KR, SG, ID, MY, TH, VN, PH, BD, PK, LK, NP, BT, MV, AF, MM, KH, LA, MN, TW, HK, AE, SA, QA, IL, TR, IR, IQ, JO, KZ, UZ]
+  Global: []

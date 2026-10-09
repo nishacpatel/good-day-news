@@ -54,6 +54,31 @@ def test_other_errors_are_not_masked_by_fallback(monkeypatch):
     assert calls == ["model-a"]
 
 
+def test_embedding_batches_respect_token_budget():
+    from gooddaynews.llm import EMBED_BATCH, embedding_batches, estimate_tokens
+
+    texts = ["x" * 4000] * 10  # about 1,000 tokens each
+    batches = embedding_batches(texts, max_tokens=3000)
+    assert [len(b) for b in batches] == [2, 2, 2, 2, 2]
+    assert all(sum(estimate_tokens(t) for t in b) <= 3000 for b in batches)
+    assert embedding_batches(["a"] * (EMBED_BATCH + 1), 10**6)[1] == ["a"]
+    assert embedding_batches([], 100) == []
+
+
+def test_embedding_pacing_waits_when_minute_budget_is_used(monkeypatch):
+    import gooddaynews.llm as llm_mod
+
+    clock = {"t": 1000.0}
+    slept = []
+    monkeypatch.setattr(llm_mod.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(llm_mod.time, "sleep", lambda s: (slept.append(s), clock.update(t=clock["t"] + s)))
+    llm = GeminiLLM(Settings(gemini_api_key="test", embed_tokens_per_minute=10000))
+    llm._pace_embedding(8000)
+    assert slept == []
+    llm._pace_embedding(5000)  # 13,000 in one minute is over the limit: wait for the first batch to age out
+    assert len(slept) == 1 and 60 <= slept[0] <= 61
+
+
 class _Chunk:
     def __init__(self, text):
         self.text = text

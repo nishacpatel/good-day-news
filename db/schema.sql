@@ -117,6 +117,7 @@ create table if not exists briefings (
     created_at  timestamptz not null default now(),
     unique (user_id, for_date)
 );
+alter table briefings add column if not exists window_hours int not null default 24;
 
 -- ---------- Run log (orchestrator) ----------
 create table if not exists run_log (

@@ -31,6 +31,9 @@ class Settings:
     answer_thinking: str = field(default_factory=lambda: os.getenv("GEMINI_ANSWER_THINKING", "low"))
     embed_model: str = field(default_factory=lambda: os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001"))
     triage_model: str = field(default_factory=lambda: os.getenv("GEMINI_TRIAGE_MODEL", "gemini-3.1-flash-lite,gemini-3.5-flash-lite"))
+    # Free-tier embedding limits are per minute: one ~45k-token request failed on 9 Oct 2026, so stay well below.
+    embed_tokens_per_minute: int = field(default_factory=lambda: int(os.getenv("EMBED_TOKENS_PER_MINUTE", "25000")))
+    embed_batch_tokens: int = field(default_factory=lambda: int(os.getenv("EMBED_BATCH_TOKENS", "12000")))
     embed_dim: int = field(default_factory=lambda: int(os.getenv("EMBED_DIM", "768")))
     llm_min_interval: float = field(default_factory=lambda: float(os.getenv("LLM_MIN_INTERVAL_SECONDS", "4")))
     lookback_hours: int = field(default_factory=lambda: int(os.getenv("LOOKBACK_HOURS", "48")))

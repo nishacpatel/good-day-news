@@ -21,7 +21,9 @@ max_stories_per_country: 3
 
 # ---- Processing ----
 # Two articles are treated as the same event when their embeddings are at least this similar (0-1).
-cluster_similarity: 0.86
+# Measured 9 Oct 2026: true duplicates 0.883-0.951; a wrong merge (two different wildlife studies) 0.864;
+# the most similar different stories 0.867. The margin is narrow on a small sample; revisit as data grows.
+cluster_similarity: 0.875
 # New articles are also matched against stories from this many recent hours.
 cluster_lookback_hours: 72
 # Articles screened per triage call (one cheap LLM call screens the whole batch).

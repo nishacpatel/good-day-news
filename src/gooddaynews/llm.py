@@ -70,6 +70,7 @@ class GeminiLLM:
         self.exhausted: set[str] = set()  # models that hit their daily cap during this run
         self.used: dict[str, int] = {}
         self.empty_responses = 0
+        self._embed_log: list[tuple[float, int]] = []  # (time sent, estimated tokens) for per-minute pacing
 
     def _throttle(self) -> None:
         with self._lock:
@@ -158,8 +159,21 @@ class GeminiLLM:
                 return chunk.text, stream
         return "", stream
 
+    def _pace_embedding(self, tokens: int) -> None:
+        """Wait until sending `tokens` more keeps the last 60 seconds under the per-minute token limit."""
+        limit = self.s.embed_tokens_per_minute
+        while True:
+            now = time.monotonic()
+            self._embed_log = [(t, n) for t, n in self._embed_log if now - t < 60]
+            used = sum(n for _, n in self._embed_log)
+            if not self._embed_log or used + tokens <= limit:
+                self._embed_log.append((now, tokens))
+                return
+            time.sleep(60 - (now - self._embed_log[0][0]) + 0.5)
+
     @_retry
     def _embed_batch(self, texts: list[str], task: str) -> list[np.ndarray]:
+        self._pace_embedding(sum(estimate_tokens(t) for t in texts))
         self._throttle()
         resp = self.client.models.embed_content(
             model=self.s.embed_model,
@@ -171,6 +185,25 @@ class GeminiLLM:
 
     def embed(self, texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[np.ndarray]:
         out: list[np.ndarray] = []
-        for i in range(0, len(texts), EMBED_BATCH):
-            out.extend(self._embed_batch(texts[i : i + EMBED_BATCH], task))
+        for batch in embedding_batches(texts, self.s.embed_batch_tokens):
+            out.extend(self._embed_batch(batch, task))
         return out
+
+
+def estimate_tokens(text: str) -> int:
+    return len(text) // 4 + 1
+
+
+def embedding_batches(texts: list[str], max_tokens: int) -> list[list[str]]:
+    """Split texts into requests of at most EMBED_BATCH items and about `max_tokens` tokens."""
+    batches, current, size = [], [], 0
+    for t in texts:
+        n = estimate_tokens(t)
+        if current and (len(current) == EMBED_BATCH or size + n > max_tokens):
+            batches.append(current)
+            current, size = [], 0
+        current.append(t)
+        size += n
+    if current:
+        batches.append(current)
+    return batches

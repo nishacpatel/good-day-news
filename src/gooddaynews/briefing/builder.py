@@ -1,0 +1,66 @@
+"""Choose and order a user's briefing stories (PRD sections 10, 16-18). No database or LLM calls here."""
+
+from gooddaynews.briefing.models import BriefingConfig, BriefingStory, Profile
+
+
+def user_pillars(profile: Profile, cfg: BriefingConfig) -> set[str]:
+    return {p for t in profile.topics for p in cfg.topics.get(t, [])}
+
+
+def user_countries(profile: Profile, cfg: BriefingConfig) -> set[str] | None:
+    """Country codes the user prefers, or None when they have no geographic preference."""
+    if not profile.geography or "Global" in profile.geography:
+        return None
+    return {c for g in profile.geography for c in cfg.geography.get(g, [])}
+
+
+def rank_stories(stories: list[BriefingStory], profile: Profile, cfg: BriefingConfig,
+                 pillar_feedback: dict[str, int] | None = None) -> list[BriefingStory]:
+    """Constructive score, boosted for the user's topics, geography and past likes."""
+    pillars, countries = user_pillars(profile, cfg), user_countries(profile, cfg)
+    pillar_feedback = pillar_feedback or {}
+    for s in stories:
+        boost = 1.0
+        if s.pillar in pillars:
+            boost += cfg.topic_boost
+        if countries is not None and (s.country or "") in countries:
+            boost += cfg.geography_boost
+        net = max(-3, min(3, pillar_feedback.get(s.pillar, 0)))
+        boost += cfg.feedback_weight * net
+        s.rank = round(s.score / 10 * max(boost, 0.1), 4)
+    return sorted(stories, key=lambda s: (s.rank, s.score), reverse=True)
+
+
+def diversify(ranked: list[BriefingStory], count: int, max_per_pillar: int, max_per_country: int) -> list[BriefingStory]:
+    """Take stories in rank order without over-concentrating on one pillar or country.
+    If the limits leave the briefing short, fill it with the best of the skipped stories."""
+    chosen, skipped = [], []
+    per_pillar: dict[str, int] = {}
+    per_country: dict[str, int] = {}
+    for s in ranked:
+        if len(chosen) == count:
+            break
+        country = s.country or "?"
+        if per_pillar.get(s.pillar, 0) >= max_per_pillar or per_country.get(country, 0) >= max_per_country:
+            skipped.append(s)
+            continue
+        chosen.append(s)
+        per_pillar[s.pillar] = per_pillar.get(s.pillar, 0) + 1
+        per_country[country] = per_country.get(country, 0) + 1
+    chosen += skipped[: count - len(chosen)]
+    order = {s.id: i for i, s in enumerate(ranked)}
+    return sorted(chosen, key=lambda s: order[s.id])
+
+
+def select_stories(candidates: list[BriefingStory], profile: Profile, cfg: BriefingConfig,
+                   max_per_pillar: int, max_per_country: int,
+                   pillar_feedback: dict[str, int] | None = None) -> list[BriefingStory]:
+    count = cfg.lengths.get(profile.briefing_length, cfg.lengths["standard"])
+    ranked = rank_stories(candidates, profile, cfg, pillar_feedback)
+    return diversify(ranked, count, max_per_pillar, max_per_country)
+
+
+def briefing_title(count: int) -> str:
+    if count == 1:
+        return "1 thing that went right in the world"
+    return f"{count} things that went right in the world"
