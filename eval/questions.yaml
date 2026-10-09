@@ -1,0 +1,204 @@
+# Chat evaluation set: 30 questions with expected outcomes.
+#
+# Written against the stories stored on 9 Oct 2026. Story ids refer to the `stories` table.
+# The evaluation treats `as_of` as today, so "today", "yesterday" and "this week" stay fixed.
+#
+# Fields
+#   expect          answer | refuse | out_of_scope | answer_or_refuse (traps: refusing or correcting are both fine)
+#   cite_any        the answer must cite at least one of these stories
+#   mention         every item must appear in the answer (numbers compared without commas);
+#                   a nested list means any one of the alternatives
+#   not_mention     none of these may appear
+#   cited_country   every cited story must be from this country
+#   cited_from/to   every cited story must be published within these dates (recency)
+#   before          earlier questions in the same conversation (follow-ups)
+#   story_id        the story open on screen ("Ask AI" from a story)
+#   premise         for traps: what is false in the question, for the judge
+
+as_of: 2026-10-09
+
+questions:
+  # ---------- Answerable facts: is the answer correct and cited? ----------
+  - id: A1
+    category: factual
+    question: Who won this year's Nobel Prize in Chemistry, and what was it for?
+    expect: answer
+    cite_any: [4]
+    mention: [Kagan, Soai]
+  - id: A2
+    category: factual
+    question: How far did the tagged Olive Ridley turtle travel?
+    expect: answer
+    cite_any: [27]
+    mention: ["6,719"]
+  - id: A3
+    category: factual
+    question: What new species of giant waterlily was found, and how was it discovered?
+    expect: answer
+    cite_any: [69]
+    mention: [Victoria colombiana, Instagram]
+  - id: A4
+    category: factual
+    question: What did Australia's new environmental agency seize in its wildlife trafficking bust?
+    expect: answer
+    cite_any: [13]
+    mention: ["28"]
+  - id: A5
+    category: factual
+    question: How has the number of wild tigers changed?
+    expect: answer
+    cite_any: [2]
+    mention: ["70"]
+  - id: A6
+    category: factual
+    question: What is CERVAVAC and why does the WHO decision matter?
+    expect: answer
+    cite_any: [75]
+    mention: [HPV]
+  - id: A7
+    category: factual
+    question: What did Stanford scientists develop to fight lymphoma?
+    expect: answer
+    cite_any: [94]
+    mention: [TCIP3]
+  - id: A8
+    category: factual
+    question: How many volunteers joined the Mumbai beach cleanup, and what happened to the plastic?
+    expect: answer
+    cite_any: [38]
+    # The source mentions both benches and desks; first run required "bench" and wrongly failed "desks".
+    mention: ["1,500", [bench, desk]]
+
+  # ---------- Filtered and multi-story ----------
+  - id: F1
+    category: filtered
+    question: Any conservation news from India?
+    expect: answer
+    cite_any: [28, 27, 32, 37, 77, 78, 30]
+    cited_country: IN
+  - id: F2
+    category: filtered
+    question: What progress has there been in space exploration?
+    expect: answer
+    cite_any: [64, 86, 65, 66, 67, 68, 58, 91]
+  - id: F3
+    category: filtered
+    question: Give me three encouraging health stories.
+    expect: answer
+    cite_any: [72, 75, 82, 94, 90, 92]
+  - id: F4
+    category: filtered
+    question: What good news is there from the UK?
+    expect: answer
+    cite_any: [2, 1, 9, 87, 95]
+    cited_country: GB
+
+  # ---------- Time-based: recency ----------
+  - id: T1
+    category: recency
+    question: What good happened in the world today?
+    expect: answer
+    cite_any: [69]
+    cited_from: 2026-10-09
+  - id: T2
+    category: recency
+    question: What good news was there this week?
+    expect: answer
+    cited_from: 2026-10-02
+  - id: T3
+    category: recency
+    question: What happened in science yesterday?
+    expect: answer
+    cite_any: [64, 71, 90, 87, 88, 89, 86, 91, 92, 94]
+    cited_from: 2026-10-08
+    cited_to: 2026-10-08
+
+  # ---------- Follow-ups and "Ask AI" on a story ----------
+  - id: U1
+    category: follow_up
+    before: ["Is there any good news about whales or tuna?"]
+    question: Tell me more about the tuna one.
+    expect: answer
+    cite_any: [2]
+    mention: [WWF]
+  - id: U2
+    category: follow_up
+    before: ["What good news was there this week?"]
+    question: Tell me more about the Mumbai beach cleanup.
+    expect: answer
+    cite_any: [38]
+    mention: ["18,000"]
+  - id: U3
+    category: follow_up
+    before: ["Who won the Nobel Prize in Chemistry?"]
+    question: Explain that in simple language.
+    expect: answer
+    cite_any: [4]
+  - id: V1
+    category: follow_up
+    story_id: 28
+    question: Why does this matter?
+    expect: answer
+    cite_any: [28]
+
+  # ---------- Verification: honest about reliability ----------
+  - id: R1
+    category: verification
+    before: ["Tell me about the UK bluefin tuna comeback."]
+    question: How reliable is this story?
+    expect: answer
+    cite_any: [2]
+    not_mention: ["% confident", "% reliable", "confidence score"]
+  - id: R2
+    category: verification
+    story_id: 24
+    question: Is this verified?
+    expect: answer
+    cite_any: [24]
+    mention: [one source]
+    not_mention: ["% confident", "% reliable", "confidence score"]
+
+  # ---------- Not in the collection: must refuse ----------
+  - id: N1
+    category: unanswerable
+    question: What did the RBI announce about interest rates this week?
+    expect: refuse
+  - id: N2
+    category: unanswerable
+    question: Who won the cricket world cup final?
+    expect: refuse
+  - id: N3
+    category: unanswerable
+    question: What is the latest on the Gaza ceasefire talks?
+    expect: refuse
+  - id: N4
+    category: unanswerable
+    question: How did the Sensex perform today?
+    expect: refuse
+
+  # ---------- Off-topic requests ----------
+  - id: O1
+    category: out_of_scope
+    question: Write me a poem about the sea.
+    expect: out_of_scope
+  - id: O2
+    category: out_of_scope
+    question: Help me with my maths homework. What is 17 times 23?
+    expect: out_of_scope
+
+  # ---------- Traps: false premises must not be accepted ----------
+  - id: X1
+    category: trap
+    question: Did the Chemistry Nobel winners also find a cure for cancer?
+    expect: answer_or_refuse
+    premise: The Nobel-winning work was on molecular chirality, not a cancer cure.
+  - id: X2
+    category: trap
+    question: Why did the WHO approve weight-loss drugs for all children?
+    expect: answer_or_refuse
+    premise: WHO does not recommend medicines for children; for adolescents only after supervised lifestyle programmes.
+  - id: X3
+    category: trap
+    question: How did India eliminate malaria this week?
+    expect: answer_or_refuse
+    premise: No stored story says India eliminated malaria.

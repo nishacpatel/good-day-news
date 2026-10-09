@@ -1,0 +1,26 @@
+# Duplicate-detection labels: is this pair the same real-world event?
+#
+# Measured on 9 Oct 2026 from the live pipeline (see config/scoring.yaml, cluster_similarity):
+#   - "article_to_story": a new article compared with an existing story, the path that merges new coverage.
+#   - "story_to_story": the most similar pairs of different published stories, a proxy for near-misses.
+# Small sample. Expand with: python -m gooddaynews.evaluation.dedupe_pairs (needs embedding quota).
+
+pairs:
+  - {a: "The Guardian: Comebacks for wild tigers, tuna and sea turtles", b: "Story: UK bluefin tuna comeback (WWF)",
+     similarity: 0.911, same: true, kind: article_to_story}
+  - {a: "The Hindu: Chemistry Nobel 2026 honours the science of mirrored molecules", b: "Story: Chemistry Nobel awarded",
+     similarity: 0.883, same: true, kind: article_to_story}
+  - {a: "The Hindu: GPS study on elephant movements in Assam", b: "Story: Mishmi takin habitat study",
+     similarity: 0.864, same: false, kind: article_to_story}
+  - {a: "India witnesses measurable wildlife recoveries", b: "Two cheetahs released into Veerangana Durgavati",
+     similarity: 0.867, same: false, kind: story_to_story}
+  - {a: "Webb pinpoints farthest fast radio burst", b: "Einstein Probe reveals hidden soft X-ray phase",
+     similarity: 0.863, same: false, kind: story_to_story}
+  - {a: "NASA selects PRIMA spacecraft", b: "NASA selects three investigations for Moon base",
+     similarity: 0.861, same: false, kind: story_to_story}
+  - {a: "NASA all-glass telescope for LISA", b: "NASA selects PRIMA spacecraft",
+     similarity: 0.860, same: false, kind: story_to_story}
+  - {a: "Olive Ridley turtle satellite tracking", b: "India witnesses measurable wildlife recoveries",
+     similarity: 0.855, same: false, kind: story_to_story}
+  - {a: "Myristica swamps in the Western Ghats", b: "India witnesses measurable wildlife recoveries",
+     similarity: 0.847, same: false, kind: story_to_story}

@@ -6,3 +6,5 @@ __pycache__/
 data/
 *.log
 *.egg-info/
+# Evaluation results contain source passages (article text): keep them local, publish the report only
+eval/results/

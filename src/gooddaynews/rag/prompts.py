@@ -66,7 +66,7 @@ Rules:
    If asked to explain simply, use plain language a teenager would follow."""
 
 
-def _story_block(n: int, s: StoryHit, passages: list[Passage]) -> str:
+def story_block(n: int, s: StoryHit, passages: list[Passage]) -> str:
     when = s.published_at.strftime("%d %b %Y") if s.published_at else "date unknown"
     where = ", ".join(x for x in (s.place, s.country) if x) or "location not stated"
     names = "; ".join(dict.fromkeys(src.name for src in s.sources)) or "unknown"
@@ -87,7 +87,7 @@ Passages from the original reporting:
 def answer_prompt(question: str, today: date, stories: list[StoryHit], passages: list[Passage],
                   history: list[Turn], user_topics: list[str] | None) -> str:
     blocks = "\n\n".join(
-        _story_block(i, s, [p for p in passages if p.story_id == s.id]) for i, s in enumerate(stories, 1)
+        story_block(i, s, [p for p in passages if p.story_id == s.id]) for i, s in enumerate(stories, 1)
     )
     convo = "\n".join(f"{t.role}: {t.text[:600]}" for t in history) or "(none)"
     topics = ", ".join(user_topics) if user_topics else "(not set)"

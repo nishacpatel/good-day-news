@@ -70,6 +70,7 @@ class GeminiLLM:
         self.exhausted: set[str] = set()  # models that hit their daily cap during this run
         self.used: dict[str, int] = {}
         self.empty_responses = 0
+        self.last_answer_model: str | None = None  # which model wrote the latest streamed answer
         self._embed_log: list[tuple[float, int]] = []  # (time sent, estimated tokens) for per-minute pacing
 
     def _throttle(self) -> None:
@@ -80,9 +81,12 @@ class GeminiLLM:
             self._last_call = time.monotonic()
             self.calls += 1
 
-    def generate_json(self, prompt: str, schema: type[T], *, system: str, fast: bool = False) -> T:
-        """Try each configured model in order, skipping any that hit their daily cap."""
-        models = [m for m in model_list(self.s.triage_model if fast else self.s.chat_model) if m not in self.exhausted]
+    def generate_json(self, prompt: str, schema: type[T], *, system: str, fast: bool = False,
+                      models: str | None = None) -> T:
+        """Try each configured model in order, skipping any that hit their daily cap.
+        `models` (comma-separated) overrides the configured list, e.g. for the evaluation judge."""
+        chosen = models or (self.s.triage_model if fast else self.s.chat_model)
+        models = [m for m in model_list(chosen) if m not in self.exhausted]
         if not models:
             raise RuntimeError("every configured Gemini model has hit its daily free-tier limit")
         for model in models:
@@ -132,6 +136,7 @@ class GeminiLLM:
                     raise
                 continue
             self.used[model] = self.used.get(model, 0) + 1
+            self.last_answer_model = model
             if not first:
                 # The model finished without any visible text (it can happen after long "thinking").
                 self.empty_responses += 1
@@ -159,21 +164,23 @@ class GeminiLLM:
                 return chunk.text, stream
         return "", stream
 
-    def _pace_embedding(self, tokens: int) -> None:
-        """Wait until sending `tokens` more keeps the last 60 seconds under the per-minute token limit."""
-        limit = self.s.embed_tokens_per_minute
+    def _pace_embedding(self, tokens: int, count: int) -> None:
+        """Wait until sending `count` more texts (`tokens` tokens) keeps the last 60 seconds under both
+        per-minute limits. The free tier counts every text in a batch as one request (100 a minute)."""
         while True:
             now = time.monotonic()
-            self._embed_log = [(t, n) for t, n in self._embed_log if now - t < 60]
-            used = sum(n for _, n in self._embed_log)
-            if not self._embed_log or used + tokens <= limit:
-                self._embed_log.append((now, tokens))
+            self._embed_log = [e for e in self._embed_log if now - e[0] < 60]
+            used_tokens = sum(e[1] for e in self._embed_log)
+            used_texts = sum(e[2] for e in self._embed_log)
+            if not self._embed_log or (used_tokens + tokens <= self.s.embed_tokens_per_minute
+                                       and used_texts + count <= self.s.embed_texts_per_minute):
+                self._embed_log.append((now, tokens, count))
                 return
             time.sleep(60 - (now - self._embed_log[0][0]) + 0.5)
 
     @_retry
     def _embed_batch(self, texts: list[str], task: str) -> list[np.ndarray]:
-        self._pace_embedding(sum(estimate_tokens(t) for t in texts))
+        self._pace_embedding(sum(estimate_tokens(t) for t in texts), len(texts))
         self._throttle()
         resp = self.client.models.embed_content(
             model=self.s.embed_model,
@@ -185,7 +192,7 @@ class GeminiLLM:
 
     def embed(self, texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[np.ndarray]:
         out: list[np.ndarray] = []
-        for batch in embedding_batches(texts, self.s.embed_batch_tokens):
+        for batch in embedding_batches(texts, self.s.embed_batch_tokens, self.s.embed_texts_per_minute):
             out.extend(self._embed_batch(batch, task))
         return out
 
@@ -194,12 +201,13 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 4 + 1
 
 
-def embedding_batches(texts: list[str], max_tokens: int) -> list[list[str]]:
-    """Split texts into requests of at most EMBED_BATCH items and about `max_tokens` tokens."""
+def embedding_batches(texts: list[str], max_tokens: int, max_items: int = EMBED_BATCH) -> list[list[str]]:
+    """Split texts into requests of at most `max_items` texts (and EMBED_BATCH) and about `max_tokens` tokens."""
+    max_items = min(max_items, EMBED_BATCH)
     batches, current, size = [], [], 0
     for t in texts:
         n = estimate_tokens(t)
-        if current and (len(current) == EMBED_BATCH or size + n > max_tokens):
+        if current and (len(current) == max_items or size + n > max_tokens):
             batches.append(current)
             current, size = [], 0
         current.append(t)

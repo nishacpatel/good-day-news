@@ -20,7 +20,7 @@ Capstone project: multi-agent news pipeline + RAG. Architecture: [docs/architect
 - [x] RAG chat (command line and Streamlit)
 - [x] Morning briefing + personalisation (demo email sign-in; password sign-in still to do)
 - [x] Explore, search, story pages, feedback, notifications (email via SMTP, or a local outbox)
-- [ ] Evaluation report
+- [x] Evaluation report ([docs/evaluation_report.md](docs/evaluation_report.md))
 
 ## Setup
 
@@ -127,7 +127,18 @@ The web app has three pages: Today's Briefing (the landing page), Ask AI, and My
 
 Not yet tracked: clicks on "Read the original", because Streamlit opens external links directly without telling the app.
 
-Free-tier notes: `gemini-3.5-flash` allows 20 requests a day, so each task lists several models in `.env` and moves to the next when one is used up. Answers take about 10–40 seconds on the free tier, mostly while the model "thinks"; `GEMINI_ANSWER_THINKING=low` limits that. Embeddings have a per-minute token limit, so requests are split to about 12,000 tokens and paced to stay under 25,000 a minute (`EMBED_BATCH_TOKENS`, `EMBED_TOKENS_PER_MINUTE`).
+### Evaluation
+
+Results: [docs/evaluation_report.md](docs/evaluation_report.md). In short: 29/30 questions passed. Accuracy,
+citation correctness, recency and unanswerable handling scored 100% on the automatic checks and the judge, with one
+date slip found by a manual check. Story scoring agrees with hand labels 75% of the time.
+
+- `eval/questions.yaml`: 30 questions with expected outcomes (answer, refuse, off-topic, or a false premise to reject), the stories each answer must cite, required facts, countries and dates.
+- `python -m gooddaynews.evaluation.run`: asks every question in a fresh conversation with the date fixed, and saves each result as it goes (`--resume` continues after a quota stop). It checks the outcome, the cited stories, required facts, countries, dates and any number missing from the sources. A judge model grades accuracy and citations, and never grades an answer written by its own model.
+- `python -m gooddaynews.evaluation.report <run.jsonl> [baseline.jsonl]`: writes the report, adds the keep/reject (`eval/classification_labels.yaml`) and duplicate (`eval/dedupe_labels.yaml`) checks, and includes the hand-written `eval/findings.md`.
+- Raw results stay local (`eval/results/` is git-ignored) because they contain source passages.
+
+Free-tier notes: embeddings are capped at 1,000 texts a day, which limits daily processing volume. `gemini-3.5-flash` allows 20 requests a day, so each task lists several models in `.env` and moves to the next when one is used up. Answers take about 10–40 seconds on the free tier, mostly while the model "thinks"; `GEMINI_ANSWER_THINKING=low` limits that. Embeddings have a per-minute token limit, so requests are split to about 12,000 tokens and paced to stay under 25,000 a minute (`EMBED_BATCH_TOKENS`, `EMBED_TOKENS_PER_MINUTE`).
 
 ## Configuration
 

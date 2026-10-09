@@ -100,10 +100,15 @@ def parse_date(value: str) -> date | None:
 
 
 def merge_filters(ui: Filters | None, plan: QueryPlan, pillars: dict, cfg: RagConfig, today: date) -> Filters:
-    """Filters chosen in the app win; otherwise use what the question implies."""
+    """Filters chosen in the app win; otherwise use what the question implies.
+
+    Categories are only filtered when the user picks them in the app. Categories the model infers from the
+    question are a ranking hint (see `inferred_pillars`), because the model guesses them even when the user
+    didn't ask: in evaluation it filed a vaccine question under Science and Solutions, which hid the answer
+    (filed under Progress) and caused a wrong refusal."""
     ui = ui or Filters()
     f = Filters(
-        pillars=ui.pillars or [p for p in plan.pillars if p in pillars],
+        pillars=ui.pillars,
         countries=ui.countries or [c.upper() for c in plan.countries if len(c) in (2, 3)],
         start=ui.start or parse_date(plan.start_date),
         end=ui.end or parse_date(plan.end_date),
@@ -111,6 +116,10 @@ def merge_filters(ui: Filters | None, plan: QueryPlan, pillars: dict, cfg: RagCo
     if plan.broad and not f.start:
         f.start = today - timedelta(days=cfg.default_days_back)
     return f
+
+
+def inferred_pillars(plan: QueryPlan, pillars: dict) -> list[str]:
+    return [p for p in plan.pillars if p in pillars]
 
 
 def fallback_plan(question: str) -> QueryPlan:
@@ -188,7 +197,9 @@ class ChatEngine:
                     s.relevance = 1.0
                 else:
                     s.relevance = min(1.0, fused.get(sid, 0.0) + (RECENT_STORY_BOOST if sid in recent else 0.0))
-            ranked = rerank(list(loaded.values()), cfg, user_topics)
+            # Categories the question seems to be about get the same boost as the user's own topics.
+            boosted = list(dict.fromkeys((user_topics or []) + inferred_pillars(plan, self.pillars)))
+            ranked = rerank(list(loaded.values()), cfg, boosted)
             chosen = [s for s in ranked if s.id in pinned]
             chosen += [s for s in ranked if s.id not in pinned][: max(0, cfg.max_stories - len(chosen))]
 

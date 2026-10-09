@@ -67,9 +67,17 @@ def test_keyword_query_keeps_phrases_and_strips_operators():
 # ---------- filters ----------
 
 def test_app_filters_override_question_filters(rag_cfg, pillars):
-    p = plan(pillars=["science"], start_date="2026-10-01")
-    f = merge_filters(Filters(pillars=["environment"]), p, pillars, rag_cfg, TODAY)
-    assert f.pillars == ["environment"] and f.start == date(2026, 10, 1)
+    p = plan(countries=["IN"], start_date="2026-10-01")
+    f = merge_filters(Filters(countries=["GB"]), p, pillars, rag_cfg, TODAY)
+    assert f.countries == ["GB"] and f.start == date(2026, 10, 1)
+
+
+def test_guessed_categories_never_filter(rag_cfg, pillars):
+    """Regression (evaluation A6): the model filed a vaccine question under science/solutions, which hid the
+    answer filed under progress. Only categories picked in the app may filter."""
+    f = merge_filters(None, plan(pillars=["science", "solutions"]), pillars, rag_cfg, TODAY)
+    assert f.pillars == []
+    assert merge_filters(Filters(pillars=["progress"]), plan(), pillars, rag_cfg, TODAY).pillars == ["progress"]
 
 
 def test_broad_question_without_dates_gets_default_window(rag_cfg, pillars):
@@ -77,9 +85,9 @@ def test_broad_question_without_dates_gets_default_window(rag_cfg, pillars):
     assert f.start == TODAY - timedelta(days=rag_cfg.default_days_back)
 
 
-def test_unknown_pillars_and_bad_dates_are_ignored(rag_cfg, pillars):
-    f = merge_filters(None, plan(pillars=["sport"], start_date="last week"), pillars, rag_cfg, TODAY)
-    assert f.pillars == [] and f.start is None
+def test_bad_country_codes_and_dates_are_ignored(rag_cfg, pillars):
+    f = merge_filters(None, plan(countries=["India"], start_date="last week"), pillars, rag_cfg, TODAY)
+    assert f.countries == [] and f.start is None
 
 
 # ---------- citations ----------
@@ -202,3 +210,12 @@ def test_broad_question_uses_recent_stories(fake_db, pillars):
     fake_db["recent"] = [2, 1]
     a = make_engine(ChatLLM(plan(broad=True)), pillars).ask("What good happened this week?", ChatSession()).complete()
     assert {s.id for s in a.stories} == {1, 2} and not a.refused
+
+
+def test_guessed_category_boosts_ranking(fake_db, pillars, monkeypatch):
+    fake_db["vector"] = [(1, 0.70), (2, 0.70)]
+    stories = engine_mod.retrieve.load_stories(None, [1, 2])
+    stories[1].pillar, stories[2].pillar = "science", "progress"
+    monkeypatch.setattr(engine_mod.retrieve, "load_stories", lambda conn, ids: {i: stories[i] for i in ids})
+    a = make_engine(ChatLLM(plan(pillars=["progress"])), pillars).ask("q", ChatSession())
+    assert a.stories[0].id == 2

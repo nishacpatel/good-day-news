@@ -1,0 +1,36 @@
+# Keep/reject labels for evaluating the constructive scoring agent (PRD sections 5, 10 and 45).
+#
+# Labelled by the developer (with Claude) applying the PRD's editorial principles, NOT by an independent
+# panel. Review these and change any you disagree with; the evaluation recalculates from this file.
+#
+# 24 stories: 12 the pipeline kept and 12 it rejected, chosen to include borderline cases.
+# label: keep | reject
+
+labels:
+  # ----- Kept by the pipeline -----
+  - {id: 4,  label: keep,   reason: "Nobel-winning chemistry: landmark scientific achievement"}
+  - {id: 27, label: keep,   reason: "New research that directly informs turtle conservation"}
+  - {id: 28, label: keep,   reason: "Completed legal protection for a habitat after 20 years"}
+  - {id: 2,  label: keep,   reason: "Measured recovery of tuna and tigers; also reports the wider decline"}
+  - {id: 75, label: keep,   reason: "WHO approval of an Indian-made HPV vaccine: wider access"}
+  - {id: 94, label: keep,   reason: "Promising cancer research; early (mice), must not be framed as a cure"}
+  - {id: 76, label: keep,   reason: "Measurable saving in a public service (about Rs 10 crore a year)"}
+  - {id: 74, label: keep,   reason: "New rules protecting patients from misleading medical advertising"}
+  - {id: 93, label: keep,   reason: "Animal welfare improvement, small but real (Joy & Culture: animals)"}
+  - {id: 65, label: reject, reason: "Routine end of a scheduled crew rotation, not new progress"}
+  - {id: 79, label: reject, reason: "A task force was set up: an intention, no action or result yet"}
+  - {id: 95, label: reject, reason: "Interesting study, but it reports no progress, solution or improvement"}
+
+  # ----- Rejected by the pipeline -----
+  - {id: 3,  label: reject, reason: "Obituary"}
+  - {id: 14, label: reject, reason: "Research documenting harm"}
+  - {id: 16, label: reject, reason: "Wildlife decline"}
+  - {id: 25, label: reject, reason: "How-to gardening guide"}
+  - {id: 46, label: reject, reason: "Announcement of a future consultation paper"}
+  - {id: 49, label: reject, reason: "Consumer product launch"}
+  - {id: 40, label: reject, reason: "Opinion piece"}
+  - {id: 23, label: reject, reason: "Historical retrospective"}
+  - {id: 55, label: reject, reason: "Speech and commentary"}
+  - {id: 35, label: keep,   reason: "About 1,000 students cleared 2,000 kg of waste: measurable community action"}
+  - {id: 81, label: keep,   reason: "Free health camp served about 600 students: local, concrete benefit"}
+  - {id: 11, label: keep,   reason: "California law allowing balcony solar is real progress, though the article is a roundup"}

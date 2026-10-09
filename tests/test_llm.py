@@ -63,6 +63,7 @@ def test_embedding_batches_respect_token_budget():
     assert all(sum(estimate_tokens(t) for t in b) <= 3000 for b in batches)
     assert embedding_batches(["a"] * (EMBED_BATCH + 1), 10**6)[1] == ["a"]
     assert embedding_batches([], 100) == []
+    assert [len(b) for b in embedding_batches(["a"] * 200, 10**6, max_items=90)] == [90, 90, 20]
 
 
 def test_embedding_pacing_waits_when_minute_budget_is_used(monkeypatch):
@@ -72,11 +73,13 @@ def test_embedding_pacing_waits_when_minute_budget_is_used(monkeypatch):
     slept = []
     monkeypatch.setattr(llm_mod.time, "monotonic", lambda: clock["t"])
     monkeypatch.setattr(llm_mod.time, "sleep", lambda s: (slept.append(s), clock.update(t=clock["t"] + s)))
-    llm = GeminiLLM(Settings(gemini_api_key="test", embed_tokens_per_minute=10000))
-    llm._pace_embedding(8000)
+    llm = GeminiLLM(Settings(gemini_api_key="test", embed_tokens_per_minute=10000, embed_texts_per_minute=90))
+    llm._pace_embedding(8000, 10)
     assert slept == []
-    llm._pace_embedding(5000)  # 13,000 in one minute is over the limit: wait for the first batch to age out
+    llm._pace_embedding(5000, 10)  # 13,000 tokens in one minute is over the limit: wait for the first batch
     assert len(slept) == 1 and 60 <= slept[0] <= 61
+    llm._pace_embedding(100, 85)  # 95 texts in one minute is over the 90-text limit
+    assert len(slept) == 2
 
 
 class _Chunk:
