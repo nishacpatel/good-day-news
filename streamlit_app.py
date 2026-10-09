@@ -1,11 +1,17 @@
 """Constructive News AI: web app.
 
-    .venv\\Scripts\\python -m streamlit run streamlit_app.py
+    .venv\\Scripts\\python -m streamlit run streamlit_app.py --server.address localhost
 """
 
-import streamlit as st
+import sys
+from pathlib import Path
 
-from gooddaynews.ui import briefing_page, chat_page, explore_page, nav, profile_page, story_page
+# Streamlit Community Cloud installs requirements.txt but not this project's package, so import it from src/.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
+import streamlit as st  # noqa: E402
+
+from gooddaynews.ui import briefing_page, chat_page, explore_page, nav, profile_page, story_page  # noqa: E402
 
 st.set_page_config(page_title="Constructive News AI", page_icon="☀️", layout="centered")
 

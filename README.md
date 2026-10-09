@@ -22,6 +22,11 @@ Capstone project: multi-agent news pipeline + RAG. Architecture: [docs/architect
 - [x] Explore, search, story pages, feedback, notifications (email via SMTP, or a local outbox)
 - [x] Evaluation report ([docs/evaluation_report.md](docs/evaluation_report.md))
 
+## Deployment
+
+Web app on Streamlit Community Cloud, scheduled pipeline on GitHub Actions, database on Supabase: see
+[docs/deployment.md](docs/deployment.md).
+
 ## Setup
 
 Requires Python 3.12 or newer.
@@ -76,7 +81,7 @@ Create a free API key at aistudio.google.com and put it in `GEMINI_API_KEY` in `
 .\.venv\Scripts\python -m gooddaynews.rag.cli "What conservation news is there from India?"
 
 # Chat in the browser at http://localhost:8501
-.\.venv\Scripts\python -m streamlit run streamlit_app.py
+.\.venv\Scripts\python -m streamlit run streamlit_app.py --server.address localhost
 
 # Tests (offline; a fake LLM stands in for Gemini)
 .\.venv\Scripts\python -m pytest

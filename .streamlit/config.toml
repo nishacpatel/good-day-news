@@ -1,9 +1,8 @@
 [browser]
 gatherUsageStats = false
 
-[server]
-# Only reachable from this computer during development.
-address = "localhost"
+# Locally, run with --server.address localhost so the app is reachable only from this computer
+# (see .claude/launch.json). Don't set it here: Streamlit Community Cloud needs the default.
 
 [theme]
 base = "light"

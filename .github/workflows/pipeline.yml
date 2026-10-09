@@ -1,0 +1,47 @@
+name: News pipeline
+
+# Fetch and score news four times a day; build briefings and send notifications every hour.
+# GitHub runs schedules in UTC and may start them a few minutes late.
+on:
+  schedule:
+    - cron: "15 0,6,12,18 * * *"  # fetch -> process -> briefings (05:45, 11:45, 17:45, 23:45 IST)
+    - cron: "45 * * * *"          # briefings and notifications only
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "What to run"
+        type: choice
+        options: [full, briefings]
+        default: full
+
+concurrency:
+  group: news-pipeline  # never run two at once: they would share the free-tier quota
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      APP_URL: ${{ secrets.APP_URL }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt && pip install -e .
+      - name: Full pipeline
+        if: github.event.schedule == '15 0,6,12,18 * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'full')
+        run: python scripts/daily.py
+      - name: Briefings and notifications
+        if: github.event.schedule == '45 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'briefings')
+        run: python -m gooddaynews.briefing.run

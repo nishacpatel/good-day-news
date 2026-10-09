@@ -49,5 +49,5 @@ def get_sender():
     """SMTP when SMTP_HOST, SMTP_USER and SMTP_PASSWORD are set in .env; the local outbox otherwise."""
     host, user, password = os.getenv("SMTP_HOST"), os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD")
     if host and user and password:
-        return SmtpSender(host, int(os.getenv("SMTP_PORT", "465")), user, password, os.getenv("SMTP_FROM", user))
+        return SmtpSender(host, int(os.getenv("SMTP_PORT") or 465), user, password, os.getenv("SMTP_FROM") or user)
     return OutboxSender()

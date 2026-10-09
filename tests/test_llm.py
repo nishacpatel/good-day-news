@@ -82,6 +82,13 @@ def test_embedding_pacing_waits_when_minute_budget_is_used(monkeypatch):
     assert len(slept) == 2
 
 
+def test_empty_environment_values_fall_back_to_defaults(monkeypatch):
+    monkeypatch.setenv("APP_URL", "")  # how GitHub Actions passes a secret that isn't set
+    monkeypatch.setenv("EMBED_DIM", "")
+    s = Settings()
+    assert s.app_url == "http://localhost:8501" and s.embed_dim == 768
+
+
 class _Chunk:
     def __init__(self, text):
         self.text = text
